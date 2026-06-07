@@ -1,0 +1,4 @@
+# Vercel only needs the static page. The Supabase function code + docs aren't web assets.
+supabase/
+README.md
+.gitignore
