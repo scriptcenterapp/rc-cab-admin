@@ -593,21 +593,28 @@ async function saveAnn(id) {
   const { error } = await q;
   $("a_save").disabled = false;
   if (error) { m.textContent = error.message; m.classList.add("show"); return; }
-  if (!id && payload.is_active) sendAnnouncementPush(kindLabel(payload.kind), payload.message);
-  closeModal(); toast(id ? "Announcement updated" : "Announcement posted"); renderAnnouncements();
+  let pushNote = "";
+  if (payload.is_active) {
+    const res = await sendAnnouncementPush(kindLabel(payload.kind), payload.message);
+    if (res && res.ok) pushNote = ` · pushed to ${res.sent} device${res.sent === 1 ? "" : "s"}`;
+    else pushNote = " · push failed";
+  }
+  closeModal(); toast((id ? "Announcement updated" : "Announcement posted") + pushNote); renderAnnouncements();
 }
 
-// Fires a push to all devices with alerts on (best-effort; admin-only on the server).
+// Fires a push to all registered devices (admin-only on the server).
+// Returns the function's JSON ({ok, sent, devices}) or null so the caller can show a result.
 async function sendAnnouncementPush(title, body) {
   try {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) return;
-    await fetch(`${SUPABASE_URL}/functions/v1/send-announcement-push`, {
+    if (!session) return null;
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/send-announcement-push`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": SUPABASE_KEY },
       body: JSON.stringify({ title, body }),
     });
-  } catch (e) { /* push is best-effort */ }
+    return await r.json();
+  } catch (e) { return null; }
 }
 
 // ---------- OFF-SEASON (admin) ----------
