@@ -17,11 +17,12 @@ A simple web dashboard for managing the **RC CAB** iOS app's content, backed by 
 - Public sign-ups are disabled, so only admin-created accounts can log in.
 
 ## Hosting
-This page is a single static `index.html`. It's published on GitHub Pages, but it can run from anywhere
-(open the file locally, or host it on any static host) — it only talks to Supabase over HTTPS.
+This page is a single static `index.html`, deployed on **Vercel** at **https://rc-cab-admin.vercel.app**.
+The Vercel project is connected to this GitHub repo, so every push to `main` auto-deploys.
+(It's pure static — it can also run from any host or even a local file; it only talks to Supabase over HTTPS.)
 
 > Note: Supabase Storage / Edge Functions intentionally refuse to serve executable HTML
-> (CSP `sandbox` + forced `text/plain`), so the static page is hosted on GitHub Pages while
+> (CSP `sandbox` + forced `text/plain`), so the static page is hosted on Vercel while
 > everything else (auth, database, the user-creation function) runs on Supabase.
 
 ## Supabase pieces
