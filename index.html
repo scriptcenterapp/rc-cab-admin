@@ -110,6 +110,45 @@
   /* Toast */
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1c1c20; color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 14px; opacity: 0; transition: all .25s; z-index: 50; box-shadow: var(--shadow); }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 640px) {
+    header.bar { flex-wrap: wrap; padding: 12px 14px; gap: 8px 10px; }
+    header.bar .mark { width: 32px; height: 32px; font-size: 12px; }
+    header.bar .title { font-size: 16px; }
+    header.bar .title small { display: none; }
+    header.bar .who { font-size: 12px; line-height: 1.15; text-align: right; }
+    header.bar .who #whoEmail { max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    header.bar .btn.sm { margin-left: 0 !important; padding: 8px 12px; }
+
+    nav.tabs { padding: 0 8px; }
+    nav.tabs button { padding: 12px 12px; }
+
+    main { padding: 16px 12px 64px; }
+    .section-head h2 { font-size: 19px; }
+
+    /* Stack the two-up form fields */
+    .row { flex-direction: column; gap: 0; }
+
+    /* List rows: action buttons wrap under the text, full width */
+    .item { flex-wrap: wrap; }
+    .item .actions { width: 100%; justify-content: flex-end; margin-top: 8px; }
+    .item .actions .btn { flex: 1; }
+
+    /* Bulk toolbar wraps cleanly */
+    #bulkBar { flex-wrap: wrap; }
+    #bulkBar #delSelected { flex: 1; }
+
+    /* Modals: tighter, stacked full-width footer buttons */
+    .overlay { padding: 12px; }
+    .modal { padding: 18px 16px; }
+    .modal .foot { flex-direction: column-reverse; }
+    .modal .foot .btn { width: 100%; }
+
+    /* Comfortable tap targets */
+    .btn { padding: 12px 16px; }
+    .btn.sm { padding: 9px 13px; font-size: 14px; }
+  }
 </style>
 </head>
 <body>
