@@ -2,3 +2,7 @@
 supabase/.branches
 supabase/.temp
 *.log
+.vercel
+
+# APNs secret (never commit)
+supabase/functions/send-announcement-push/_apns.ts

@@ -593,7 +593,21 @@ async function saveAnn(id) {
   const { error } = await q;
   $("a_save").disabled = false;
   if (error) { m.textContent = error.message; m.classList.add("show"); return; }
+  if (!id && payload.is_active) sendAnnouncementPush(kindLabel(payload.kind), payload.message);
   closeModal(); toast(id ? "Announcement updated" : "Announcement posted"); renderAnnouncements();
+}
+
+// Fires a push to all devices with alerts on (best-effort; admin-only on the server).
+async function sendAnnouncementPush(title, body) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    await fetch(`${SUPABASE_URL}/functions/v1/send-announcement-push`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": SUPABASE_KEY },
+      body: JSON.stringify({ title, body }),
+    });
+  } catch (e) { /* push is best-effort */ }
 }
 
 // ---------- OFF-SEASON (admin) ----------
