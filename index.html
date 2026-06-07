@@ -272,14 +272,24 @@ function render() {
 // ---------- EVENTS (admin) ----------
 async function renderEvents() {
   const view = $("view");
-  view.innerHTML = `<div class="section-head"><h2>Events</h2><button class="btn" id="addEvent">+ Add event</button></div><div id="eventList"><div class="empty">Loading…</div></div>`;
+  view.innerHTML = `<div class="section-head"><h2>Events</h2><button class="btn" id="addEvent">+ Add event</button></div>
+    <div id="bulkBar" class="card" style="display:none; align-items:center; gap:10px; padding:10px 14px">
+      <span class="check" style="margin:0"><input type="checkbox" id="selAll" /><label for="selAll" style="margin:0">Select all</label></span>
+      <span style="flex:1"></span>
+      <button class="btn secondary sm" id="selPast">Select past</button>
+      <button class="btn danger sm" id="delSelected" disabled>Delete selected (0)</button>
+    </div>
+    <div id="eventList"><div class="empty">Loading…</div></div>`;
   $("addEvent").addEventListener("click", () => eventForm(null));
   const { data, error } = await sb.from("events").select("*").order("start_date", { ascending: true });
   const list = $("eventList");
   if (error) { list.innerHTML = `<div class="empty">${esc(error.message)}</div>`; return; }
   if (!data.length) { list.innerHTML = `<div class="empty">No events yet. Add the first one.</div>`; return; }
+  $("bulkBar").style.display = "flex";
+  const now = Date.now();
   list.innerHTML = data.map((ev) => `
     <div class="card"><div class="item">
+      <input type="checkbox" class="evsel" data-id="${ev.id}" data-past="${new Date(ev.end_date || ev.start_date).getTime() < now}" style="width:auto; margin-top:4px" />
       <div class="meta">
         <div class="name">${esc(ev.title)}${ev.is_featured ? '<span class="pill">Featured</span>' : ""}</div>
         <div class="sub">${esc(catLabel(ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div>
@@ -291,6 +301,28 @@ async function renderEvents() {
     </div></div>`).join("");
   list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => eventForm(data.find((e) => e.id === b.dataset.edit))));
   list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteEvent(data.find((e) => e.id === b.dataset.del))));
+
+  // ---- multi-select / bulk delete ----
+  const boxes = () => Array.from(list.querySelectorAll(".evsel"));
+  const selectedIds = () => boxes().filter((c) => c.checked).map((c) => c.dataset.id);
+  const updateBulk = () => {
+    const n = selectedIds().length;
+    $("delSelected").disabled = n === 0;
+    $("delSelected").textContent = `Delete selected (${n})`;
+    $("selAll").checked = n > 0 && n === boxes().length;
+  };
+  boxes().forEach((c) => c.addEventListener("change", updateBulk));
+  $("selAll").addEventListener("change", () => { boxes().forEach((c) => { c.checked = $("selAll").checked; }); updateBulk(); });
+  $("selPast").addEventListener("click", () => { boxes().forEach((c) => { c.checked = c.dataset.past === "true"; }); updateBulk(); });
+  $("delSelected").addEventListener("click", async () => {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    if (!confirm(`Delete ${ids.length} event${ids.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    $("delSelected").disabled = true;
+    const { error: delErr } = await sb.from("events").delete().in("id", ids);
+    if (delErr) { $("delSelected").disabled = false; return toast(delErr.message); }
+    toast(`Deleted ${ids.length} event${ids.length === 1 ? "" : "s"}`); renderEvents();
+  });
 }
 
 function eventForm(ev) {
