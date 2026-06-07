@@ -147,7 +147,8 @@
       <div id="whoEmail"></div>
       <span class="badge" id="whoRole"></span>
     </div>
-    <button class="btn secondary sm" id="signOutBtn" style="margin-left:10px">Sign out</button>
+    <button class="btn secondary sm" id="changePwBtn" style="margin-left:10px">Change password</button>
+    <button class="btn secondary sm" id="signOutBtn" style="margin-left:6px">Sign out</button>
   </header>
   <nav class="tabs" id="tabs"></nav>
   <main id="view"></main>
@@ -210,6 +211,30 @@ $("loginForm").addEventListener("submit", async (e) => {
   await boot();
 });
 $("signOutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+
+// ---------- change own password ----------
+$("changePwBtn").addEventListener("click", () => {
+  openModal(`
+    <h3>Change your password</h3>
+    <div id="formMsg" class="msg err"></div>
+    <div class="field"><label>New password</label><input id="p_new" type="password" autocomplete="new-password" /></div>
+    <div class="field"><label>Confirm new password</label><input id="p_confirm" type="password" autocomplete="new-password" /></div>
+    <p style="color:var(--muted);font-size:13px">At least 6 characters. You'll stay signed in.</p>
+    <div class="foot"><button class="btn secondary" id="p_cancel">Cancel</button><button class="btn" id="p_save">Update password</button></div>`);
+  $("p_cancel").addEventListener("click", closeModal);
+  $("p_save").addEventListener("click", doChangePassword);
+});
+async function doChangePassword() {
+  const m = $("formMsg"); m.classList.remove("show");
+  const np = $("p_new").value, cp = $("p_confirm").value;
+  if (np.length < 6) { m.textContent = "Password must be at least 6 characters."; m.classList.add("show"); return; }
+  if (np !== cp) { m.textContent = "The two passwords don't match."; m.classList.add("show"); return; }
+  $("p_save").disabled = true;
+  const { error } = await sb.auth.updateUser({ password: np });
+  $("p_save").disabled = false;
+  if (error) { m.textContent = error.message; m.classList.add("show"); return; }
+  closeModal(); toast("Password updated");
+}
 
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
