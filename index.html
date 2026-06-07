@@ -253,7 +253,7 @@ async function boot() {
 
 function buildTabs() {
   const tabs = me.role === "admin"
-    ? [["events", "Events"], ["announcements", "Announcements"], ["offseason", "Off-Season"], ["team", "Team"]]
+    ? [["events", "Events"], ["announcements", "Announcements"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
     : [["add", "Add Event"]];
   $("tabs").innerHTML = tabs.map(([id, label]) =>
     `<button data-tab="${id}" class="${id === activeTab ? "active" : ""}">${label}</button>`).join("");
@@ -266,6 +266,7 @@ function render() {
   if (activeTab === "events") return renderEvents();
   if (activeTab === "announcements") return renderAnnouncements();
   if (activeTab === "offseason") return renderOffSeason();
+  if (activeTab === "calendar") return renderCalendar();
   if (activeTab === "team") return renderTeam();
 }
 
@@ -586,6 +587,54 @@ async function saveOffSeason() {
   $("os_save").disabled = false;
   if (error) { m.textContent = error.message; m.classList.add("show"); return; }
   toast("Status saved"); renderOffSeason();
+}
+
+// ---------- CALENDAR (admin) ----------
+const MONTHS = [[1,"January"],[2,"February"],[3,"March"],[4,"April"],[5,"May"],[6,"June"],[7,"July"],[8,"August"],[9,"September"],[10,"October"],[11,"November"],[12,"December"]];
+async function renderCalendar() {
+  const view = $("view");
+  view.innerHTML = `<div class="section-head"><h2>Calendar</h2></div><div id="calCard" class="card"><div class="empty">Loading…</div></div>`;
+  const { data, error } = await sb.from("app_status").select("*").limit(1).single();
+  if (error) { $("calCard").innerHTML = `<div class="empty">${esc(error.message)}</div>`; return; }
+  const thisYear = new Date().getFullYear();
+  const years = []; for (let y = thisYear - 1; y <= thisYear + 5; y++) years.push(y);
+  const monthOpts = (sel) => MONTHS.map(([v, l]) => `<option value="${v}" ${sel == v ? "selected" : ""}>${l}</option>`).join("");
+  const yearOpts = (sel) => years.map((y) => `<option value="${y}" ${sel == y ? "selected" : ""}>${y}</option>`).join("");
+  const limited = data.calendar_start_year != null && data.calendar_start_month != null;
+  $("calCard").innerHTML = `
+    <div id="formMsg" class="msg err"></div>
+    <p style="margin:0 0 14px;color:var(--muted);font-size:14px">Limit which months people can scroll to in the app's Calendar tab (e.g. the school year). Leave it off to show every month.</p>
+    <div class="field check"><input id="cal_limit" type="checkbox" ${limited ? "checked" : ""} /><label for="cal_limit">Limit the calendar to a date range</label></div>
+    <div id="calRange" style="${limited ? "" : "display:none"}">
+      <div class="row">
+        <div class="field"><label>Start month</label><select id="cal_sm">${monthOpts(data.calendar_start_month || 8)}</select></div>
+        <div class="field"><label>Start year</label><select id="cal_sy">${yearOpts(data.calendar_start_year || thisYear)}</select></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>End month</label><select id="cal_em">${monthOpts(data.calendar_end_month || 5)}</select></div>
+        <div class="field"><label>End year</label><select id="cal_ey">${yearOpts(data.calendar_end_year || thisYear + 1)}</select></div>
+      </div>
+    </div>
+    <button class="btn" id="cal_save" style="width:100%">Save calendar range</button>`;
+  $("cal_limit").addEventListener("change", () => { $("calRange").style.display = $("cal_limit").checked ? "" : "none"; });
+  $("cal_save").addEventListener("click", saveCalendar);
+}
+async function saveCalendar() {
+  const m = $("formMsg"); m.classList.remove("show");
+  let payload;
+  if (!$("cal_limit").checked) {
+    payload = { calendar_start_year: null, calendar_start_month: null, calendar_end_year: null, calendar_end_month: null };
+  } else {
+    const sy = +$("cal_sy").value, sm = +$("cal_sm").value, ey = +$("cal_ey").value, em = +$("cal_em").value;
+    if (ey * 12 + em < sy * 12 + sm) { m.textContent = "The end month must be the same as or after the start month."; m.classList.add("show"); return; }
+    payload = { calendar_start_year: sy, calendar_start_month: sm, calendar_end_year: ey, calendar_end_month: em };
+  }
+  payload.updated_at = new Date().toISOString();
+  $("cal_save").disabled = true;
+  const { error } = await sb.from("app_status").update(payload).eq("id", true);
+  $("cal_save").disabled = false;
+  if (error) { m.textContent = error.message; m.classList.add("show"); return; }
+  toast("Calendar range saved"); renderCalendar();
 }
 
 // ---------- TEAM (admin) ----------
