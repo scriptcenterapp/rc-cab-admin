@@ -292,7 +292,7 @@ async function renderEvents() {
     <div class="card"><div class="item">
       <input type="checkbox" class="evsel" data-id="${ev.id}" data-past="${new Date(ev.end_date || ev.start_date).getTime() < now}" style="width:auto; margin-top:4px" />
       <div class="meta">
-        <div class="name">${esc(ev.title)}${ev.is_featured ? '<span class="pill">Featured</span>' : ""}</div>
+        <div class="name">${esc(ev.title)}${ev.is_cancelled ? '<span class="pill red">Cancelled</span>' : ""}${ev.is_featured ? '<span class="pill">Featured</span>' : ""}</div>
         <div class="sub">${esc(catLabel(ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div>
       </div>
       <div class="actions">
@@ -352,6 +352,7 @@ function eventForm(ev) {
       <input id="f_imgurl" type="hidden" value="${esc(e.image_url || "")}" />
     </div>
     <div class="field check"><input id="f_feat" type="checkbox" ${e.is_featured ? "checked" : ""} /><label for="f_feat">Feature on the home screen</label></div>
+    <div class="field check"><input id="f_cancelled" type="checkbox" ${e.is_cancelled ? "checked" : ""} /><label for="f_cancelled">Mark as cancelled</label></div>
     <div class="foot">
       <button class="btn secondary" id="f_cancel">Cancel</button>
       <button class="btn" id="f_save">${ev ? "Save changes" : "Add event"}</button>
@@ -408,6 +409,7 @@ async function saveEvent(id) {
     host_org: $("f_host").value.trim() || "Campus Activities Board",
     image_url,
     is_featured: $("f_feat").checked,
+    is_cancelled: $("f_cancelled").checked,
   };
   const q = id ? sb.from("events").update(payload).eq("id", id) : sb.from("events").insert(payload);
   const { error } = await q;
