@@ -308,9 +308,15 @@ function eventForm(ev) {
       <div class="field"><label>Location</label><input id="f_loc" value="${esc(e.location || "")}" /></div>
       <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(([v, l]) => `<option value="${v}" ${e.category === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
     </div>
-    <div class="row">
-      <div class="field"><label>Hosted by</label><input id="f_host" value="${esc(e.host_org || "Campus Activities Board")}" /></div>
-      <div class="field"><label>Image URL (optional)</label><input id="f_img" value="${esc(e.image_url || "")}" /></div>
+    <div class="field"><label>Hosted by</label><input id="f_host" value="${esc(e.host_org || "Campus Activities Board")}" /></div>
+    <div class="field">
+      <label>Image (optional)</label>
+      <div id="imgPreviewWrap" style="${e.image_url ? "" : "display:none"}; margin-bottom:8px">
+        <img id="imgPreview" src="${esc(e.image_url || "")}" alt="" style="max-height:130px; border-radius:10px; display:block; border:1px solid var(--line)" />
+        <button type="button" class="btn ghost sm" id="imgRemove" style="padding:6px 0">Remove image</button>
+      </div>
+      <input id="f_imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+      <input id="f_imgurl" type="hidden" value="${esc(e.image_url || "")}" />
     </div>
     <div class="field check"><input id="f_feat" type="checkbox" ${e.is_featured ? "checked" : ""} /><label for="f_feat">Feature on the home screen</label></div>
     <div class="foot">
@@ -319,25 +325,57 @@ function eventForm(ev) {
     </div>`);
   $("f_cancel").addEventListener("click", closeModal);
   $("f_save").addEventListener("click", () => saveEvent(ev && ev.id));
+  $("f_imgfile").addEventListener("change", () => {
+    const f = $("f_imgfile").files?.[0];
+    if (f) { $("imgPreview").src = URL.createObjectURL(f); $("imgPreviewWrap").style.display = ""; }
+  });
+  const imgRemoveBtn = document.getElementById("imgRemove");
+  if (imgRemoveBtn) imgRemoveBtn.addEventListener("click", () => {
+    $("f_imgurl").value = ""; $("f_imgfile").value = ""; $("imgPreviewWrap").style.display = "none";
+  });
+}
+
+// Uploads a file to the public event-images bucket; returns its public URL.
+async function uploadImage(file) {
+  const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
+  const path = `${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from("event-images").upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+  if (error) throw error;
+  return sb.storage.from("event-images").getPublicUrl(path).data.publicUrl;
 }
 
 async function saveEvent(id) {
   const m = $("formMsg"); m.classList.remove("show");
-  const payload = {
-    title: $("f_title").value.trim(),
-    description: $("f_desc").value.trim(),
-    start_date: fromLocalInput($("f_start").value),
-    end_date: fromLocalInput($("f_end").value),
-    location: $("f_loc").value.trim(),
-    category: $("f_cat").value,
-    host_org: $("f_host").value.trim() || "Campus Activities Board",
-    image_url: $("f_img").value.trim() || null,
-    is_featured: $("f_feat").checked,
-  };
-  if (!payload.title || !payload.start_date || !payload.location) {
+  const title = $("f_title").value.trim();
+  const start_date = fromLocalInput($("f_start").value);
+  const location = $("f_loc").value.trim();
+  if (!title || !start_date || !location) {
     m.textContent = "Title, start time, and location are required."; m.classList.add("show"); return;
   }
   $("f_save").disabled = true;
+  // Upload a newly chosen image; otherwise keep the existing URL (cleared by "Remove image").
+  let image_url = $("f_imgurl").value || null;
+  const file = $("f_imgfile").files?.[0];
+  if (file) {
+    $("f_save").textContent = "Uploading…";
+    try { image_url = await uploadImage(file); }
+    catch (err) {
+      $("f_save").disabled = false; $("f_save").textContent = id ? "Save changes" : "Add event";
+      m.textContent = "Image upload failed: " + (err.message || err); m.classList.add("show"); return;
+    }
+    $("f_save").textContent = id ? "Save changes" : "Add event";
+  }
+  const payload = {
+    title,
+    description: $("f_desc").value.trim(),
+    start_date,
+    end_date: fromLocalInput($("f_end").value),
+    location,
+    category: $("f_cat").value,
+    host_org: $("f_host").value.trim() || "Campus Activities Board",
+    image_url,
+    is_featured: $("f_feat").checked,
+  };
   const q = id ? sb.from("events").update(payload).eq("id", id) : sb.from("events").insert(payload);
   const { error } = await q;
   $("f_save").disabled = false;
@@ -370,6 +408,7 @@ async function renderEditor() {
         <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>
       </div>
       <div class="field"><label>Hosted by</label><input id="f_host" value="Campus Activities Board" /></div>
+      <div class="field"><label>Image (optional)</label><input id="f_imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /></div>
       <button class="btn" id="f_save" style="width:100%">Add event</button>
     </div>
     <div class="section-head" style="margin-top:8px"><h2 style="font-size:16px">Upcoming events</h2></div>
@@ -385,18 +424,34 @@ async function loadEditorList() {
 }
 async function saveEditorEvent() {
   const m = $("formMsg"); m.classList.remove("show");
-  const payload = {
-    title: $("f_title").value.trim(), description: $("f_desc").value.trim(),
-    start_date: fromLocalInput($("f_start").value), end_date: fromLocalInput($("f_end").value),
-    location: $("f_loc").value.trim(), category: $("f_cat").value,
-    host_org: $("f_host").value.trim() || "Campus Activities Board",
-  };
-  if (!payload.title || !payload.start_date || !payload.location) { m.textContent = "Title, start time, and location are required."; m.classList.add("show"); return; }
+  const title = $("f_title").value.trim();
+  const start_date = fromLocalInput($("f_start").value);
+  const location = $("f_loc").value.trim();
+  if (!title || !start_date || !location) { m.textContent = "Title, start time, and location are required."; m.classList.add("show"); return; }
   $("f_save").disabled = true;
+  let image_url = null;
+  const file = $("f_imgfile").files?.[0];
+  if (file) {
+    $("f_save").textContent = "Uploading…";
+    try { image_url = await uploadImage(file); }
+    catch (err) {
+      $("f_save").disabled = false; $("f_save").textContent = "Add event";
+      m.textContent = "Image upload failed: " + (err.message || err); m.classList.add("show"); return;
+    }
+    $("f_save").textContent = "Add event";
+  }
+  const payload = {
+    title, description: $("f_desc").value.trim(),
+    start_date, end_date: fromLocalInput($("f_end").value),
+    location, category: $("f_cat").value,
+    host_org: $("f_host").value.trim() || "Campus Activities Board",
+    image_url,
+  };
   const { error } = await sb.from("events").insert(payload);
   $("f_save").disabled = false;
   if (error) { m.textContent = error.message; m.classList.add("show"); return; }
   ["f_title", "f_desc", "f_start", "f_end", "f_loc"].forEach((i) => { $(i).value = ""; });
+  if ($("f_imgfile")) $("f_imgfile").value = "";
   toast("Event added"); loadEditorList();
 }
 
