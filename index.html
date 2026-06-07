@@ -243,7 +243,7 @@ async function boot() {
   // determine role
   const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle();
   me.role = roleRow?.role || "editor";
-  $("login").style.display = "none"; $("app").style.display = "";
+  $("login").style.display = "none"; $("app").style.display = "block";
   $("whoEmail").textContent = me.email;
   $("whoRole").textContent = me.role;
   buildTabs();
