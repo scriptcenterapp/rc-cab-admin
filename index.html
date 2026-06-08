@@ -210,7 +210,10 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 function toast(text) { const t = $("toast"); t.textContent = text; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
 function openModal(html) { $("modal").innerHTML = html; $("overlay").classList.add("open"); }
 function closeModal() { $("overlay").classList.remove("open"); $("modal").innerHTML = ""; }
-$("overlay").addEventListener("click", (e) => { if (e.target === $("overlay")) closeModal(); });
+// Dismiss on backdrop press (not click): a text-selection drag that starts inside a
+// field and releases on the backdrop fires a click on the overlay — which used to close
+// the modal mid-edit. mousedown only matches when the press itself starts on the backdrop.
+$("overlay").addEventListener("mousedown", (e) => { if (e.target === $("overlay")) closeModal(); });
 
 // datetime-local <-> ISO (browser local timezone)
 function toLocalInput(iso) {
