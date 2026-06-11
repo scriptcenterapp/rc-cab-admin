@@ -64,9 +64,10 @@
 
   /* App shell */
   #app { display: none; min-height: 100dvh; }
+  .topbar { position: sticky; top: 0; z-index: 5; }
   header.bar {
     background: var(--maroon); color: #fff; padding: 14px 18px;
-    display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 12px;
   }
   header.bar .mark { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,.18); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
   header.bar .title { font-weight: 700; font-size: 17px; line-height: 1.1; }
@@ -184,18 +185,20 @@
 
 <!-- ===== App ===== -->
 <div id="app">
-  <header class="bar">
-    <div class="mark">RC</div>
-    <div class="title">Roanoke Campus Events App Admin<small>Student Engagement</small></div>
-    <div class="spacer"></div>
-    <div class="who">
-      <div id="whoEmail"></div>
-      <span class="badge" id="whoRole"></span>
-    </div>
-    <button class="btn secondary sm" id="changePwBtn" style="margin-left:10px">Change password</button>
-    <button class="btn secondary sm" id="signOutBtn" style="margin-left:6px">Sign out</button>
-  </header>
-  <nav class="tabs" id="tabs"></nav>
+  <div class="topbar">
+    <header class="bar">
+      <div class="mark">RC</div>
+      <div class="title">Roanoke Campus Events App Admin<small>Student Engagement</small></div>
+      <div class="spacer"></div>
+      <div class="who">
+        <div id="whoEmail"></div>
+        <span class="badge" id="whoRole"></span>
+      </div>
+      <button class="btn secondary sm" id="changePwBtn" style="margin-left:10px">Change password</button>
+      <button class="btn secondary sm" id="signOutBtn" style="margin-left:6px">Sign out</button>
+    </header>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
   <main id="view"></main>
 </div>
 
