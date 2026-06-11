@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="light" />
-<title>Roanoke Campus Events App Admin</title>
+<title>RC Campus Life Events App Admin</title>
 <style>
   :root {
     --maroon: #7c2529;
@@ -165,7 +165,7 @@
   <div class="card">
     <div class="brand">
       <div class="mark">RC</div>
-      <h1>Roanoke Campus Events App Admin</h1>
+      <h1>RC Campus Life Events App Admin</h1>
       <p class="sub">Student Engagement</p>
     </div>
     <div id="loginMsg" class="msg err"></div>
@@ -188,7 +188,7 @@
   <div class="topbar">
     <header class="bar">
       <div class="mark">RC</div>
-      <div class="title">Roanoke Campus Events App Admin<small>Student Engagement</small></div>
+      <div class="title">RC Campus Life Events App Admin<small>Student Engagement</small></div>
       <div class="spacer"></div>
       <div class="who">
         <div id="whoEmail"></div>
@@ -403,7 +403,7 @@ function eventForm(ev) {
       <div class="field"><label>Location</label><input id="f_loc" value="${esc(e.location || "")}" /></div>
       <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(([v, l]) => `<option value="${v}" ${e.category === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
     </div>
-    <div class="field"><label>Hosted by</label><input id="f_host" value="${esc(e.host_org || "Roanoke Campus")}" /></div>
+    <div class="field"><label>Hosted by</label><input id="f_host" value="${esc(e.host_org || "RC Campus Life")}" /></div>
     <div class="field">
       <label>Image (optional)</label>
       <div id="imgPreviewWrap" style="${e.image_url ? "" : "display:none"}; margin-bottom:8px">
@@ -468,7 +468,7 @@ async function saveEvent(id) {
     end_date: fromLocalInput($("f_end").value),
     location,
     category: $("f_cat").value,
-    host_org: $("f_host").value.trim() || "Roanoke Campus",
+    host_org: $("f_host").value.trim() || "RC Campus Life",
     image_url,
   };
   // Featured / cancelled are admin-only controls; editors don't see them, so

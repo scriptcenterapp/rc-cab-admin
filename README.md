@@ -1,6 +1,6 @@
-# Roanoke Campus Events App Admin
+# RC Campus Life Events App Admin
 
-A simple web dashboard for managing the **Roanoke Campus** iOS app's content, backed by Supabase.
+A simple web dashboard for managing the **RC Campus Life** iOS app's content, backed by Supabase.
 
 ## What it does
 - **Events** — admins add / edit / delete events.
