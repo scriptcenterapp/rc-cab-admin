@@ -1,4 +1,4 @@
-# Roanoke Campus Admin
+# Roanoke Campus Events App Admin
 
 A simple web dashboard for managing the **Roanoke Campus** iOS app's content, backed by Supabase.
 
