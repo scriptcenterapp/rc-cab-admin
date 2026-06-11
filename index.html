@@ -389,6 +389,7 @@ async function renderEvents() {
 
 function eventForm(ev) {
   const e = ev || {};
+  const isAdmin = me.role === "admin";
   openModal(`
     <h3>${ev ? "Edit event" : "Add event"}</h3>
     <div id="formMsg" class="msg err"></div>
@@ -412,8 +413,8 @@ function eventForm(ev) {
       <input id="f_imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
       <input id="f_imgurl" type="hidden" value="${esc(e.image_url || "")}" />
     </div>
-    <div class="field check"><input id="f_feat" type="checkbox" ${e.is_featured ? "checked" : ""} /><label for="f_feat">Feature on the home screen</label></div>
-    <div class="field check"><input id="f_cancelled" type="checkbox" ${e.is_cancelled ? "checked" : ""} /><label for="f_cancelled">Mark as cancelled</label></div>
+    ${isAdmin ? `<div class="field check"><input id="f_feat" type="checkbox" ${e.is_featured ? "checked" : ""} /><label for="f_feat">Feature on the home screen</label></div>
+    <div class="field check"><input id="f_cancelled" type="checkbox" ${e.is_cancelled ? "checked" : ""} /><label for="f_cancelled">Mark as cancelled</label></div>` : ""}
     <div class="foot">
       <button class="btn secondary" id="f_cancel">Cancel</button>
       <button class="btn" id="f_save">${ev ? "Save changes" : "Add event"}</button>
@@ -469,9 +470,11 @@ async function saveEvent(id) {
     category: $("f_cat").value,
     host_org: $("f_host").value.trim() || "Roanoke Campus",
     image_url,
-    is_featured: $("f_feat").checked,
-    is_cancelled: $("f_cancelled").checked,
   };
+  // Featured / cancelled are admin-only controls; editors don't see them, so
+  // leave those columns untouched (existing value kept on edit, DB default on add).
+  if ($("f_feat")) payload.is_featured = $("f_feat").checked;
+  if ($("f_cancelled")) payload.is_cancelled = $("f_cancelled").checked;
   const q = id ? sb.from("events").update(payload).eq("id", id) : sb.from("events").insert(payload);
   const { error } = await q;
   $("f_save").disabled = false;
