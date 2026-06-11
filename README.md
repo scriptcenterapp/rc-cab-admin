@@ -1,6 +1,6 @@
-# RC CAB Admin
+# Roanoke Campus Admin
 
-A simple web dashboard for managing the **RC CAB** iOS app's content, backed by Supabase.
+A simple web dashboard for managing the **Roanoke Campus** iOS app's content, backed by Supabase.
 
 ## What it does
 - **Events** — admins add / edit / delete events.
