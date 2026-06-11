@@ -95,6 +95,12 @@
   .pill.red { background: #fbe7e4; color: var(--danger); }
   .empty { text-align: center; color: var(--muted); padding: 40px 16px; }
 
+  /* Event groups (Upcoming / Previous) */
+  .evgroup + .evgroup { margin-top: 24px; }
+  .evgroup > h3 { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 0 0 10px; }
+  .evgroup > h3 .count { font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--muted); background: #ececef; border-radius: 999px; padding: 1px 8px; }
+  .evgroup.past .card { opacity: .82; }
+
   /* Modal */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-start; justify-content: center; padding: 24px 16px; z-index: 20; overflow-y: auto; }
   .overlay.open { display: flex; }
@@ -330,9 +336,10 @@ async function renderEvents() {
   if (!data.length) { list.innerHTML = `<div class="empty">No events yet. Add the first one.</div>`; return; }
   $("bulkBar").style.display = "flex";
   const now = Date.now();
-  list.innerHTML = data.map((ev) => `
+  const isPast = (ev) => new Date(ev.end_date || ev.start_date).getTime() < now;
+  const card = (ev) => `
     <div class="card"><div class="item">
-      <input type="checkbox" class="evsel" data-id="${ev.id}" data-past="${new Date(ev.end_date || ev.start_date).getTime() < now}" style="width:auto; margin-top:4px" />
+      <input type="checkbox" class="evsel" data-id="${ev.id}" data-past="${isPast(ev)}" style="width:auto; margin-top:4px" />
       <div class="meta">
         <div class="name">${esc(ev.title)}${ev.is_cancelled ? '<span class="pill red">Cancelled</span>' : ""}${ev.is_featured ? '<span class="pill">Featured</span>' : ""}</div>
         <div class="sub">${esc(catLabel(ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div>
@@ -341,7 +348,13 @@ async function renderEvents() {
         <button class="btn secondary sm" data-edit="${ev.id}">Edit</button>
         <button class="btn danger sm" data-del="${ev.id}">Delete</button>
       </div>
-    </div></div>`).join("");
+    </div></div>`;
+  const upcoming = data.filter((ev) => !isPast(ev));   // ascending: soonest first
+  const previous = data.filter(isPast).reverse();      // descending: most recent first
+  const group = (title, items, cls) => items.length
+    ? `<div class="evgroup ${cls}"><h3>${title} <span class="count">${items.length}</span></h3>${items.map(card).join("")}</div>`
+    : "";
+  list.innerHTML = group("Upcoming", upcoming, "") + group("Previous events", previous, "past");
   list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => eventForm(data.find((e) => e.id === b.dataset.edit))));
   list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteEvent(data.find((e) => e.id === b.dataset.del))));
 
