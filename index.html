@@ -298,14 +298,14 @@ async function boot() {
   $("whoEmail").textContent = me.email;
   $("whoRole").textContent = me.role;
   buildTabs();
-  activeTab = me.role === "admin" ? "events" : "add";
+  activeTab = "events";
   render();
 }
 
 function buildTabs() {
   const tabs = me.role === "admin"
     ? [["events", "Events"], ["announcements", "Announcements"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
-    : [["add", "Add Event"]];
+    : [["events", "Events"]];
   $("tabs").innerHTML = tabs.map(([id, label]) =>
     `<button data-tab="${id}" class="${id === activeTab ? "active" : ""}">${label}</button>`).join("");
   $("tabs").querySelectorAll("button").forEach((b) =>
@@ -313,7 +313,6 @@ function buildTabs() {
 }
 
 function render() {
-  if (me.role !== "admin") return renderEditor();
   if (activeTab === "events") return renderEvents();
   if (activeTab === "announcements") return renderAnnouncements();
   if (activeTab === "offseason") return renderOffSeason();
@@ -321,35 +320,35 @@ function render() {
   if (activeTab === "team") return renderTeam();
 }
 
-// ---------- EVENTS (admin) ----------
+// ---------- EVENTS (admins: full; editors: add + edit, no delete) ----------
 async function renderEvents() {
+  const isAdmin = me.role === "admin";
   const view = $("view");
   view.innerHTML = `<div class="section-head"><h2>Events</h2><button class="btn" id="addEvent">+ Add event</button></div>
-    <div id="bulkBar" class="card" style="display:none; align-items:center; gap:10px; padding:10px 14px">
+    ${isAdmin ? `<div id="bulkBar" class="card" style="display:none; align-items:center; gap:10px; padding:10px 14px">
       <span class="check" style="margin:0"><input type="checkbox" id="selAll" /><label for="selAll" style="margin:0">Select all</label></span>
       <span style="flex:1"></span>
       <button class="btn secondary sm" id="selPast">Select past</button>
       <button class="btn danger sm" id="delSelected" disabled>Delete selected (0)</button>
-    </div>
+    </div>` : ""}
     <div id="eventList"><div class="empty">Loading…</div></div>`;
   $("addEvent").addEventListener("click", () => eventForm(null));
   const { data, error } = await sb.from("events").select("*").order("start_date", { ascending: true });
   const list = $("eventList");
   if (error) { list.innerHTML = `<div class="empty">${esc(error.message)}</div>`; return; }
   if (!data.length) { list.innerHTML = `<div class="empty">No events yet. Add the first one.</div>`; return; }
-  $("bulkBar").style.display = "flex";
   const now = Date.now();
   const isPast = (ev) => new Date(ev.end_date || ev.start_date).getTime() < now;
   const card = (ev) => `
     <div class="card"><div class="item">
-      <input type="checkbox" class="evsel" data-id="${ev.id}" data-past="${isPast(ev)}" style="width:auto; margin-top:4px" />
+      ${isAdmin ? `<input type="checkbox" class="evsel" data-id="${ev.id}" data-past="${isPast(ev)}" style="width:auto; margin-top:4px" />` : ""}
       <div class="meta">
         <div class="name">${esc(ev.title)}${ev.is_cancelled ? '<span class="pill red">Cancelled</span>' : ""}${ev.is_featured ? '<span class="pill">Featured</span>' : ""}</div>
         <div class="sub">${esc(catLabel(ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div>
       </div>
       <div class="actions">
         <button class="btn secondary sm" data-edit="${ev.id}">Edit</button>
-        <button class="btn danger sm" data-del="${ev.id}">Delete</button>
+        ${isAdmin ? `<button class="btn danger sm" data-del="${ev.id}">Delete</button>` : ""}
       </div>
     </div></div>`;
   const upcoming = data.filter((ev) => !isPast(ev));   // ascending: soonest first
@@ -359,7 +358,11 @@ async function renderEvents() {
     : "";
   list.innerHTML = group("Upcoming", upcoming, "") + group("Previous events", previous, "past");
   list.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => eventForm(data.find((e) => e.id === b.dataset.edit))));
+
+  if (!isAdmin) return;   // editors can add & edit, but not delete
+
   list.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteEvent(data.find((e) => e.id === b.dataset.del))));
+  $("bulkBar").style.display = "flex";
 
   // ---- multi-select / bulk delete ----
   const boxes = () => Array.from(list.querySelectorAll(".evsel"));
@@ -481,71 +484,6 @@ async function deleteEvent(ev) {
   const { error } = await sb.from("events").delete().eq("id", ev.id);
   if (error) return toast(error.message);
   toast("Event deleted"); renderEvents();
-}
-
-// ---------- EDITOR (add-event only) ----------
-async function renderEditor() {
-  const view = $("view");
-  view.innerHTML = `
-    <div class="section-head"><h2>Add an event</h2></div>
-    <div class="card">
-      <div id="formMsg" class="msg err"></div>
-      <div class="field"><label>Title</label><input id="f_title" /></div>
-      <div class="field"><label>Description</label><textarea id="f_desc"></textarea></div>
-      <div class="row">
-        <div class="field"><label>Starts</label><input id="f_start" type="datetime-local" /></div>
-        <div class="field"><label>Ends (optional)</label><input id="f_end" type="datetime-local" /></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>Location</label><input id="f_loc" /></div>
-        <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>
-      </div>
-      <div class="field"><label>Hosted by</label><input id="f_host" value="Roanoke Campus" /></div>
-      <div class="field"><label>Image (optional)</label><input id="f_imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" /></div>
-      <button class="btn" id="f_save" style="width:100%">Add event</button>
-    </div>
-    <div class="section-head" style="margin-top:8px"><h2 style="font-size:16px">Upcoming events</h2></div>
-    <div id="eventList"><div class="empty">Loading…</div></div>`;
-  $("f_save").addEventListener("click", saveEditorEvent);
-  loadEditorList();
-}
-async function loadEditorList() {
-  const { data } = await sb.from("events").select("title,start_date,location,category").gte("end_date", new Date().toISOString()).order("start_date", { ascending: true });
-  const list = $("eventList");
-  if (!data || !data.length) { list.innerHTML = `<div class="empty">No upcoming events.</div>`; return; }
-  list.innerHTML = data.map((ev) => `<div class="card"><div class="item"><div class="meta"><div class="name">${esc(ev.title)}</div><div class="sub">${esc(catLabel(ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div></div></div></div>`).join("");
-}
-async function saveEditorEvent() {
-  const m = $("formMsg"); m.classList.remove("show");
-  const title = $("f_title").value.trim();
-  const start_date = fromLocalInput($("f_start").value);
-  const location = $("f_loc").value.trim();
-  if (!title || !start_date || !location) { m.textContent = "Title, start time, and location are required."; m.classList.add("show"); return; }
-  $("f_save").disabled = true;
-  let image_url = null;
-  const file = $("f_imgfile").files?.[0];
-  if (file) {
-    $("f_save").textContent = "Uploading…";
-    try { image_url = await uploadImage(file); }
-    catch (err) {
-      $("f_save").disabled = false; $("f_save").textContent = "Add event";
-      m.textContent = "Image upload failed: " + (err.message || err); m.classList.add("show"); return;
-    }
-    $("f_save").textContent = "Add event";
-  }
-  const payload = {
-    title, description: $("f_desc").value.trim(),
-    start_date, end_date: fromLocalInput($("f_end").value),
-    location, category: $("f_cat").value,
-    host_org: $("f_host").value.trim() || "Roanoke Campus",
-    image_url,
-  };
-  const { error } = await sb.from("events").insert(payload);
-  $("f_save").disabled = false;
-  if (error) { m.textContent = error.message; m.classList.add("show"); return; }
-  ["f_title", "f_desc", "f_start", "f_end", "f_loc"].forEach((i) => { $(i).value = ""; });
-  if ($("f_imgfile")) $("f_imgfile").value = "";
-  toast("Event added"); loadEditorList();
 }
 
 // ---------- ANNOUNCEMENTS (admin) ----------
