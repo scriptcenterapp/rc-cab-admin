@@ -118,6 +118,16 @@
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1c1c20; color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 14px; opacity: 0; transition: all .25s; z-index: 50; box-shadow: var(--shadow); }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* Image cropper — event posters are 18×24 (3:4) */
+  .crop { margin-top: 10px; }
+  .crop-hint { text-align: center; font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+  .crop-stage { width: 240px; max-width: 100%; margin: 0 auto; touch-action: none; }
+  .crop-stage canvas { display: block; width: 240px; height: 320px; border-radius: 10px; background: #f0f0f3; border: 1px solid var(--line); cursor: grab; }
+  .crop-stage.dragging canvas { cursor: grabbing; }
+  .crop-zoom { display: flex; align-items: center; gap: 10px; max-width: 240px; margin: 10px auto 2px; color: var(--muted); font-size: 14px; }
+  .crop-zoom input[type=range] { flex: 1; padding: 0; }
+  .crop-actions { display: flex; gap: 8px; justify-content: center; margin-top: 10px; }
+
   /* ---------- Mobile ---------- */
   @media (max-width: 640px) {
     header.bar { flex-wrap: wrap; padding: 12px 14px; gap: 8px 10px; }
@@ -250,6 +260,7 @@ const kindLabel = (v) => (KINDS.find((k) => k[0] === v) || [v, v])[1];
 // ---------- session state ----------
 let me = { email: "", role: null };
 let activeTab = "events";
+let pendingImage = null;   // cropped 18×24 poster blob awaiting upload (set by the cropper)
 
 // ---------- auth ----------
 $("loginForm").addEventListener("submit", async (e) => {
@@ -389,6 +400,7 @@ async function renderEvents() {
 
 function eventForm(ev) {
   const e = ev || {};
+  pendingImage = null;   // fresh start — no carried-over crop from a previous open
   const isAdmin = me.role === "admin";
   openModal(`
     <h3>${ev ? "Edit event" : "Add event"}</h3>
@@ -405,13 +417,14 @@ function eventForm(ev) {
     </div>
     <div class="field"><label>Hosted by</label><input id="f_host" value="${esc(e.host_org || "RC Campus Life")}" /></div>
     <div class="field">
-      <label>Image (optional)</label>
+      <label>Image (optional) — posters are 18×24 (3:4); you'll crop to fit</label>
       <div id="imgPreviewWrap" style="${e.image_url ? "" : "display:none"}; margin-bottom:8px">
-        <img id="imgPreview" src="${esc(e.image_url || "")}" alt="" style="max-height:130px; border-radius:10px; display:block; border:1px solid var(--line)" />
+        <img id="imgPreview" src="${esc(e.image_url || "")}" alt="" style="max-height:160px; border-radius:10px; display:block; border:1px solid var(--line)" />
         <button type="button" class="btn ghost sm" id="imgRemove" style="padding:6px 0">Remove image</button>
       </div>
       <input id="f_imgfile" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
       <input id="f_imgurl" type="hidden" value="${esc(e.image_url || "")}" />
+      <div id="cropArea" class="crop" style="display:none"></div>
     </div>
     ${isAdmin ? `<div class="field check"><input id="f_feat" type="checkbox" ${e.is_featured ? "checked" : ""} /><label for="f_feat">Feature on the home screen</label></div>
     <div class="field check"><input id="f_cancelled" type="checkbox" ${e.is_cancelled ? "checked" : ""} /><label for="f_cancelled">Mark as cancelled</label></div>` : ""}
@@ -423,19 +436,138 @@ function eventForm(ev) {
   $("f_save").addEventListener("click", () => saveEvent(ev && ev.id));
   $("f_imgfile").addEventListener("change", () => {
     const f = $("f_imgfile").files?.[0];
-    if (f) { $("imgPreview").src = URL.createObjectURL(f); $("imgPreviewWrap").style.display = ""; }
+    if (f) openCropper(f);   // every new image goes through the 18×24 crop
   });
   const imgRemoveBtn = document.getElementById("imgRemove");
   if (imgRemoveBtn) imgRemoveBtn.addEventListener("click", () => {
+    pendingImage = null;
     $("f_imgurl").value = ""; $("f_imgfile").value = ""; $("imgPreviewWrap").style.display = "none";
+    const ca = $("cropArea"); if (ca) { ca.style.display = "none"; ca.innerHTML = ""; }
   });
 }
 
-// Uploads a file to the public event-images bucket; returns its public URL.
+// ---------- 18×24 (3:4) poster cropper ----------
+const CROP_W = 240, CROP_H = 320;        // on-screen frame (3:4)
+const OUT_W = 1080, OUT_H = 1440;        // exported pixels — 18×24 in @ 60dpi (3:4)
+const MAX_UPLOAD_BYTES = 1024 * 1024;    // auto-compress the poster to stay under ~1 MB
+
+// Encode a canvas to JPEG under maxBytes: drop quality first, then (last resort)
+// shrink the dimensions. Aspect ratio is preserved throughout. Returns the blob
+// plus whether/how much it had to compress, for a little feedback toast.
+async function encodeUnderLimit(canvas, maxBytes) {
+  const toBlob = (c, q) => new Promise((res) => c.toBlob(res, "image/jpeg", q));
+  let blob = await toBlob(canvas, 0.9);
+  if (blob && blob.size <= maxBytes) return { blob, compressed: false };
+  for (const q of [0.8, 0.7, 0.6, 0.5, 0.42]) {
+    const b = await toBlob(canvas, q);
+    if (b) blob = b;
+    if (b && b.size <= maxBytes) return { blob, compressed: true };
+  }
+  let w = canvas.width, h = canvas.height;
+  for (let i = 0; i < 3 && blob && blob.size > maxBytes; i++) {
+    w = Math.round(w * 0.8); h = Math.round(h * 0.8);   // 0.8 on both → ratio kept
+    const small = document.createElement("canvas");
+    small.width = w; small.height = h;
+    small.getContext("2d").drawImage(canvas, 0, 0, w, h);
+    const b = await toBlob(small, 0.6);
+    if (b) blob = b;
+  }
+  return { blob, compressed: true };
+}
+
+function openCropper(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => startCrop(img);
+    img.onerror = () => toast("Couldn't read that image.");
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function startCrop(img) {
+  const area = $("cropArea");
+  $("imgPreviewWrap").style.display = "none";   // hide any existing preview while cropping
+  area.style.display = "";
+  area.innerHTML = `
+    <div class="crop-hint">Drag to reposition · slide to zoom — the frame is your 18×24 poster</div>
+    <div class="crop-stage" id="cropStage"><canvas id="cropCanvas" width="${CROP_W}" height="${CROP_H}"></canvas></div>
+    <div class="crop-zoom"><span>−</span><input id="cropZoom" type="range" min="1" max="3" step="0.01" value="1" /><span>+</span></div>
+    <div class="crop-actions">
+      <button type="button" class="btn secondary sm" id="cropCancel">Cancel</button>
+      <button type="button" class="btn sm" id="cropApply">Use this crop</button>
+    </div>`;
+
+  const canvas = $("cropCanvas"), ctx = canvas.getContext("2d");
+  const stage = $("cropStage");
+  const base = Math.max(CROP_W / img.width, CROP_H / img.height);   // "cover" the frame at min zoom
+  let scale = base;
+  let dx = (CROP_W - img.width * scale) / 2;   // top-left of the drawn image, relative to frame
+  let dy = (CROP_H - img.height * scale) / 2;
+
+  function draw() {
+    const w = img.width * scale, h = img.height * scale;
+    dx = Math.min(0, Math.max(CROP_W - w, dx));   // keep the frame fully covered
+    dy = Math.min(0, Math.max(CROP_H - h, dy));
+    ctx.clearRect(0, 0, CROP_W, CROP_H);
+    ctx.drawImage(img, dx, dy, w, h);
+  }
+  draw();
+
+  // drag to pan
+  let dragging = false, lastX = 0, lastY = 0;
+  canvas.addEventListener("pointerdown", (ev) => {
+    dragging = true; lastX = ev.clientX; lastY = ev.clientY;
+    stage.classList.add("dragging"); canvas.setPointerCapture(ev.pointerId);
+  });
+  canvas.addEventListener("pointermove", (ev) => {
+    if (!dragging) return;
+    dx += ev.clientX - lastX; dy += ev.clientY - lastY;
+    lastX = ev.clientX; lastY = ev.clientY; draw();
+  });
+  const endDrag = () => { dragging = false; stage.classList.remove("dragging"); };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+
+  // zoom, keeping the frame's center point anchored
+  $("cropZoom").addEventListener("input", (ev) => {
+    const cx = (CROP_W / 2 - dx) / scale, cy = (CROP_H / 2 - dy) / scale;
+    scale = base * parseFloat(ev.target.value);
+    dx = CROP_W / 2 - cx * scale; dy = CROP_H / 2 - cy * scale;
+    draw();
+  });
+
+  $("cropCancel").addEventListener("click", () => {
+    area.style.display = "none"; area.innerHTML = "";
+    $("f_imgfile").value = "";
+    if ($("f_imgurl").value) $("imgPreviewWrap").style.display = "";   // restore the prior image
+  });
+
+  $("cropApply").addEventListener("click", async () => {
+    const applyBtn = $("cropApply");
+    applyBtn.disabled = true; applyBtn.textContent = "Processing…";
+    const out = document.createElement("canvas");
+    out.width = OUT_W; out.height = OUT_H;
+    // the slice of the original image currently under the frame → full export size
+    const sx = -dx / scale, sy = -dy / scale, sw = CROP_W / scale, sh = CROP_H / scale;
+    out.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H);
+    const { blob, compressed } = await encodeUnderLimit(out, MAX_UPLOAD_BYTES);
+    pendingImage = blob;
+    $("imgPreview").src = URL.createObjectURL(blob);
+    $("imgPreviewWrap").style.display = "";
+    area.style.display = "none"; area.innerHTML = "";
+    const kb = Math.round(blob.size / 1024);
+    toast(compressed ? `Image compressed to ${kb} KB` : `Image ready (${kb} KB)`);
+  });
+}
+
+// Uploads a File or a cropped Blob to the public event-images bucket; returns its public URL.
 async function uploadImage(file) {
-  const ext = ((file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")) || "jpg";
+  const type = file.type || "image/jpeg";
+  const ext = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
   const path = `${crypto.randomUUID()}.${ext}`;
-  const { error } = await sb.storage.from("event-images").upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+  const { error } = await sb.storage.from("event-images").upload(path, file, { contentType: type, upsert: false });
   if (error) throw error;
   return sb.storage.from("event-images").getPublicUrl(path).data.publicUrl;
 }
@@ -448,13 +580,16 @@ async function saveEvent(id) {
   if (!title || !start_date || !location) {
     m.textContent = "Title, start time, and location are required."; m.classList.add("show"); return;
   }
+  const cropOpen = $("cropArea") && $("cropArea").style.display !== "none";
+  if (cropOpen) {
+    m.textContent = "Finish the image crop first — tap “Use this crop” or Cancel."; m.classList.add("show"); return;
+  }
   $("f_save").disabled = true;
-  // Upload a newly chosen image; otherwise keep the existing URL (cleared by "Remove image").
+  // Upload the freshly cropped poster; otherwise keep the existing URL (cleared by "Remove image").
   let image_url = $("f_imgurl").value || null;
-  const file = $("f_imgfile").files?.[0];
-  if (file) {
+  if (pendingImage) {
     $("f_save").textContent = "Uploading…";
-    try { image_url = await uploadImage(file); }
+    try { image_url = await uploadImage(pendingImage); }
     catch (err) {
       $("f_save").disabled = false; $("f_save").textContent = id ? "Save changes" : "Add event";
       m.textContent = "Image upload failed: " + (err.message || err); m.classList.add("show"); return;
