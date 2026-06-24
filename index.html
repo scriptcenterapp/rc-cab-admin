@@ -320,7 +320,7 @@ async function boot() {
 
 function buildTabs() {
   const tabs = me.role === "admin"
-    ? [["events", "Events"], ["announcements", "Announcements"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
+    ? [["events", "Events"], ["announcements", "Announcements"], ["info", "Info"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
     : [["events", "Events"]];
   $("tabs").innerHTML = tabs.map(([id, label]) =>
     `<button data-tab="${id}" class="${id === activeTab ? "active" : ""}">${label}</button>`).join("");
@@ -331,6 +331,7 @@ function buildTabs() {
 function render() {
   if (activeTab === "events") return renderEvents();
   if (activeTab === "announcements") return renderAnnouncements();
+  if (activeTab === "info") return renderInfo();
   if (activeTab === "offseason") return renderOffSeason();
   if (activeTab === "calendar") return renderCalendar();
   if (activeTab === "team") return renderTeam();
@@ -752,6 +753,56 @@ async function saveOffSeason() {
   $("os_save").disabled = false;
   if (error) { m.textContent = error.message; m.classList.add("show"); return; }
   toast("Status saved"); renderOffSeason();
+}
+
+// ---------- INFO (admin: edit the app's "Info / About" section live) ----------
+async function renderInfo() {
+  const view = $("view");
+  view.innerHTML = `<div class="section-head"><h2>Info</h2></div><div id="infoCard" class="card"><div class="empty">Loading…</div></div>`;
+
+  // Read the current content. The logged-in (authenticated) read needs the SELECT
+  // policy; until that's applied we fall back to an anon read so the form still
+  // shows the live text the app is currently using.
+  let row = null;
+  const { data } = await sb.from("info_content").select("*").order("updated_at", { ascending: false }).limit(1);
+  if (data && data.length) row = data[0];
+  else {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/info_content?select=*&order=updated_at.desc&limit=1`,
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+      const anon = await res.json();
+      if (Array.isArray(anon) && anon.length) row = anon[0];
+    } catch { /* leave the form blank */ }
+  }
+
+  $("infoCard").innerHTML = `
+    <div id="formMsg" class="msg err"></div>
+    <p style="margin:0 0 14px; color:var(--muted); font-size:14px">This is the <strong>About</strong> text on the app's Info tab. Changes go live the next time someone opens or pulls-to-refresh that tab. Separate paragraphs with a blank line.</p>
+    <div class="field"><label>Title</label><input id="if_title" value="${esc(row ? row.about_title : "")}" placeholder="About Roanoke College Student Engagement" /></div>
+    <div class="field"><label>Body</label><textarea id="if_body" style="min-height:220px" placeholder="Write the About text… leave a blank line between paragraphs.">${esc(row ? row.about_body : "")}</textarea></div>
+    <button class="btn" id="if_save" style="width:100%">Save info</button>`;
+  $("if_save").dataset.id = row ? row.id : "";
+  $("if_save").addEventListener("click", saveInfo);
+}
+
+async function saveInfo() {
+  const m = $("formMsg"); m.classList.remove("show");
+  const about_title = $("if_title").value.trim();
+  const about_body = $("if_body").value.replace(/\r\n/g, "\n").trim();
+  if (!about_title || !about_body) { m.textContent = "Title and body are both required."; m.classList.add("show"); return; }
+  const id = $("if_save").dataset.id;
+  const payload = { about_title, about_body, updated_at: new Date().toISOString() };
+  $("if_save").disabled = true; $("if_save").textContent = "Saving…";
+  const { data, error } = id
+    ? await sb.from("info_content").update(payload).eq("id", id).select()
+    : await sb.from("info_content").insert(payload).select();
+  $("if_save").disabled = false; $("if_save").textContent = "Save info";
+  if (error) { m.textContent = error.message; m.classList.add("show"); return; }
+  if (!data || !data.length) {
+    m.textContent = "The database blocked the save — info_content's admin-edit policy isn't applied yet. Run supabase/policies/info_content_admin_edit.sql, then try again.";
+    m.classList.add("show"); return;
+  }
+  toast("Info saved"); renderInfo();
 }
 
 // ---------- CALENDAR (admin) ----------
