@@ -263,7 +263,7 @@ const catLabel = (v) => (CATEGORIES.find((c) => c[0] === v) || [v, v])[1];
 const kindLabel = (v) => (KINDS.find((k) => k[0] === v) || [v, v])[1];
 
 // ---------- session state ----------
-let me = { email: "", role: null };
+let me = { email: "", id: null, role: null };
 let activeTab = "events";
 let pendingImage = null;   // cropped 18×24 poster blob awaiting upload (set by the cropper)
 
@@ -307,6 +307,7 @@ async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { $("login").style.display = ""; $("app").style.display = "none"; return; }
   me.email = session.user.email;
+  me.id = session.user.id;
   // determine role
   const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle();
   me.role = roleRow?.role || "editor";
@@ -867,9 +868,27 @@ async function renderTeam() {
   if (!data || !data.length) { list.innerHTML = `<div class="empty">No accounts yet.</div>`; return; }
   list.innerHTML = data.map((u) => `
     <div class="card"><div class="item">
-      <div class="meta"><div class="name">${esc(u.email)}<span class="pill ${u.role === "admin" ? "" : "gray"}">${esc(u.role)}</span></div>
+      <div class="meta"><div class="name">${esc(u.email)}<span class="pill ${u.role === "admin" ? "" : "gray"}">${esc(u.role)}</span>${u.user_id === me.id ? '<span class="pill gray">you</span>' : ""}</div>
       <div class="sub">Added ${fmt(u.created_at)}</div></div>
+      ${u.user_id === me.id ? "" : `<div class="actions"><button class="btn danger sm" data-deluser="${u.user_id}" data-email="${esc(u.email)}">Remove</button></div>`}
     </div></div>`).join("");
+  list.querySelectorAll("[data-deluser]").forEach((b) =>
+    b.addEventListener("click", () => deleteUser(b.dataset.deluser, b.dataset.email)));
+}
+async function deleteUser(userId, email) {
+  if (!confirm(`Remove ${email}? They lose access to the admin app immediately. This can't be undone.`)) return;
+  const { data: { session } } = await sb.auth.getSession();
+  let out;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-delete-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": SUPABASE_KEY },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    out = await res.json();
+  } catch (e) { out = { error: String(e) }; }
+  if (!out || out.error) { toast(out?.error || "Could not remove account"); return; }
+  toast("Account removed"); renderTeam();
 }
 function userForm() {
   openModal(`
