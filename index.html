@@ -437,6 +437,7 @@ function eventForm(ev) {
       <input id="f_imgurl" type="hidden" value="${esc(e.image_url || "")}" />
       <div id="cropArea" class="crop" style="display:none"></div>
     </div>
+    <div class="field check"><input id="f_silence" type="checkbox" ${e.silence_notifications ? "checked" : ""} /><label for="f_silence">Silence notifications for this event (no reminders)</label></div>
     ${isAdmin ? `<div class="field check"><input id="f_feat" type="checkbox" ${e.is_featured ? "checked" : ""} /><label for="f_feat">Feature on the home screen</label></div>
     <div class="field check"><input id="f_cancelled" type="checkbox" ${e.is_cancelled ? "checked" : ""} /><label for="f_cancelled">Mark as cancelled</label></div>` : ""}
     <div class="foot">
@@ -616,6 +617,7 @@ async function saveEvent(id) {
     category: $("f_cat").value,
     host_org: $("f_host").value.trim() || "RC Campus Life",
     image_url,
+    silence_notifications: $("f_silence").checked,
   };
   // Featured / cancelled are admin-only controls; editors don't see them, so
   // leave those columns untouched (existing value kept on edit, DB default on add).
