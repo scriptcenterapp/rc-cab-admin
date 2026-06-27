@@ -279,18 +279,44 @@ const catColor = (slug) => (catBySlug(slug) || {}).color || "#999999";
 // "Show as" fallback options — the original tags every shipped app version knows.
 const LEGACY_OPTS = ["music","bingo","free_food","movies","games","sports","giveaways","wellness","special"];
 
-// Curated SF Symbols for the icon picker. The emoji is only a web preview; the
-// symbol name is what's stored and rendered natively in the iOS app.
-const ICON_CHOICES = [
-  ["music.note","🎵"],["square.grid.3x3.fill","🔲"],["fork.knife","🍴"],["popcorn.fill","🍿"],
-  ["die.face.5.fill","🎲"],["sportscourt.fill","🏟️"],["gift.fill","🎁"],["heart.fill","❤️"],
-  ["building.columns.fill","🏛️"],["gamecontroller.fill","🎮"],["person.3.fill","👥"],["star.fill","⭐"],
-  ["megaphone.fill","📣"],["flag.fill","🚩"],["calendar","📅"],["paintbrush.fill","🖌️"],
-  ["book.fill","📖"],["mic.fill","🎤"],["basketball.fill","🏀"],["trophy.fill","🏆"],
-  ["sparkles","✨"],["ticket.fill","🎟️"],["cup.and.saucer.fill","☕"],["sun.max.fill","☀️"],
-  ["leaf.fill","🍃"],["flame.fill","🔥"],["graduationcap.fill","🎓"],["theatermasks.fill","🎭"],
-];
-const iconEmoji = (sf) => (ICON_CHOICES.find((c) => c[0] === sf) || [])[1] || "🏷️";
+// Curated SF Symbols for the icon picker, drawn as SF-Symbol-style line icons
+// (inline SVG, no web font needed). The symbol NAME is what's stored and rendered
+// natively in the iOS app; these are the web stand-ins, tinted like iOS does.
+const ICON_SVGS = {
+  "music.note": '<path d="M9 18V5l12-2v13"/> <circle cx="6" cy="18" r="3"/> <circle cx="18" cy="16" r="3"/>',
+  "square.grid.3x3.fill": '<rect width="18" height="18" x="3" y="3" rx="2"/> <path d="M3 9h18"/> <path d="M3 15h18"/> <path d="M9 3v18"/> <path d="M15 3v18"/>',
+  "fork.knife": '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/> <path d="M7 2v20"/> <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+  "popcorn.fill": '<path d="M18 8a2 2 0 0 0 0-4 2 2 0 0 0-4 0 2 2 0 0 0-4 0 2 2 0 0 0-4 0 2 2 0 0 0 0 4"/> <path d="M10 22 9 8"/> <path d="m14 22 1-14"/> <path d="M20 8c.5 0 .9.4.8 1l-2.6 12c-.1.5-.7 1-1.2 1H7c-.6 0-1.1-.4-1.2-1L3.2 9c-.1-.6.3-1 .8-1Z"/>',
+  "die.face.5.fill": '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/> <path d="M16 8h.01"/> <path d="M8 8h.01"/> <path d="M8 16h.01"/> <path d="M16 16h.01"/> <path d="M12 12h.01"/>',
+  "sportscourt.fill": '<path d="M11 7a16 16 20 0 1 10.98 4.362"/> <path d="M12 12a13 13 0 0 1-8.66 5"/> <path d="M16.83 13.634a16 16 0 0 1-9.267 7.328"/> <path d="M20.66 17A13 13 0 0 0 12 12a13 13 0 0 1 0-10"/> <path d="M8.17 15.366a16 16 0 0 1-1.713-11.69"/> <circle cx="12" cy="12" r="10"/>',
+  "gift.fill": '<path d="M12 7v14"/> <path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/> <path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5"/> <rect x="3" y="7" width="18" height="4" rx="1"/>',
+  "heart.fill": '<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/>',
+  "building.columns.fill": '<path d="M10 18v-7"/> <path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/> <path d="M14 18v-7"/> <path d="M18 18v-7"/> <path d="M3 22h18"/> <path d="M6 18v-7"/>',
+  "gamecontroller.fill": '<line x1="6" x2="10" y1="11" y2="11"/> <line x1="8" x2="8" y1="9" y2="13"/> <line x1="15" x2="15.01" y1="12" y2="12"/> <line x1="18" x2="18.01" y1="10" y2="10"/> <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
+  "person.3.fill": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/> <path d="M16 3.128a4 4 0 0 1 0 7.744"/> <path d="M22 21v-2a4 4 0 0 0-3-3.87"/> <circle cx="9" cy="7" r="4"/>',
+  "star.fill": '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>',
+  "megaphone.fill": '<path d="M11 6a13 13 0 0 0 8.4-2.8A1 1 0 0 1 21 4v12a1 1 0 0 1-1.6.8A13 13 0 0 0 11 14H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/> <path d="M6 14a12 12 0 0 0 2.4 7.2 2 2 0 0 0 3.2-2.4A8 8 0 0 1 10 14"/> <path d="M8 6v8"/>',
+  "flag.fill": '<path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/>',
+  "calendar": '<path d="M8 2v4"/> <path d="M16 2v4"/> <rect width="18" height="18" x="3" y="4" rx="2"/> <path d="M3 10h18"/>',
+  "paintbrush.fill": '<path d="m14.622 17.897-10.68-2.913"/> <path d="M18.376 2.622a1 1 0 1 1 3.002 3.002L17.36 9.643a.5.5 0 0 0 0 .707l.944.944a2.41 2.41 0 0 1 0 3.408l-.944.944a.5.5 0 0 1-.707 0L8.354 7.348a.5.5 0 0 1 0-.707l.944-.944a2.41 2.41 0 0 1 3.408 0l.944.944a.5.5 0 0 0 .707 0z"/> <path d="M9 8c-1.804 2.71-3.97 3.46-6.583 3.948a.507.507 0 0 0-.302.819l7.32 8.883a1 1 0 0 0 1.185.204C12.735 20.405 16 16.792 16 15"/>',
+  "book.fill": '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/>',
+  "mic.fill": '<path d="M12 19v3"/> <path d="M19 10v2a7 7 0 0 1-14 0v-2"/> <rect x="9" y="2" width="6" height="13" rx="3"/>',
+  "trophy.fill": '<path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/> <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/> <path d="M18 9h1.5a1 1 0 0 0 0-5H18"/> <path d="M4 22h16"/> <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/> <path d="M6 9H4.5a1 1 0 0 1 0-5H6"/>',
+  "sparkles": '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/> <path d="M20 2v4"/> <path d="M22 4h-4"/> <circle cx="4" cy="20" r="2"/>',
+  "ticket.fill": '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/> <path d="M13 5v2"/> <path d="M13 17v2"/> <path d="M13 11v2"/>',
+  "cup.and.saucer.fill": '<path d="M10 2v2"/> <path d="M14 2v2"/> <path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/> <path d="M6 2v2"/>',
+  "sun.max.fill": '<circle cx="12" cy="12" r="4"/> <path d="M12 2v2"/> <path d="M12 20v2"/> <path d="m4.93 4.93 1.41 1.41"/> <path d="m17.66 17.66 1.41 1.41"/> <path d="M2 12h2"/> <path d="M20 12h2"/> <path d="m6.34 17.66-1.41 1.41"/> <path d="m19.07 4.93-1.41 1.41"/>',
+  "leaf.fill": '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/> <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  "flame.fill": '<path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4"/>',
+  "graduationcap.fill": '<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/> <path d="M22 10v6"/> <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+  "theatermasks.fill": '<path d="M10 11h.01"/> <path d="M14 6h.01"/> <path d="M18 6h.01"/> <path d="M6.5 13.1h.01"/> <path d="M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"/> <path d="M17.4 9.9c-.8.8-2 .8-2.8 0"/> <path d="M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"/> <path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"/>',
+};
+const ICON_CHOICES = Object.keys(ICON_SVGS);
+// Render an SF Symbol name as an inline line-icon SVG (falls back to a generic tag).
+function iconSvg(name, size = 20) {
+  const inner = ICON_SVGS[name] || '<path d="M7.5 3h6l7.5 7.5-9 9L1.5 12V6.5a3.5 3.5 0 0 1 3.5-3.5Z"/><circle cx="7.5" cy="7.5" r="1.2"/>';
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block">${inner}</svg>`;
+}
 const kindLabel = (v) => (KINDS.find((k) => k[0] === v) || [v, v])[1];
 
 // ---------- session state ----------
@@ -856,7 +882,7 @@ async function renderCategories() {
   if (!appCategories.length) { list.innerHTML = `<div class="empty">No categories.</div>`; return; }
   list.innerHTML = appCategories.map((c, i) => `
     <div class="card"><div class="item">
-      <span style="width:36px;height:36px;border-radius:9px;background:${c.color};color:#fff;display:grid;place-items:center;font-size:19px;flex-shrink:0">${iconEmoji(c.icon)}</span>
+      <span style="width:36px;height:36px;border-radius:9px;background:${c.color};color:#fff;display:grid;place-items:center;flex-shrink:0">${iconSvg(c.icon, 21)}</span>
       <div class="meta">
         <div class="name">${esc(c.label)} <span class="pill gray">${esc(c.slug)}</span></div>
         <div class="sub">${esc(c.color)} · ${esc(c.icon)} · shows as “${esc(catLabel(c.legacy_category))}” on old apps</div>
@@ -887,7 +913,7 @@ function categoryForm(cat) {
       <div class="field"><label>Icon (SF Symbol)</label><input id="c_icon" value="${esc(c.icon)}" placeholder="star.fill" /></div>
     </div>
     <div class="field"><label>Pick an icon</label>
-      <div id="iconGrid" style="display:flex;flex-wrap:wrap;gap:6px">${ICON_CHOICES.map(([sf, em]) => `<button type="button" class="iconpick" data-sf="${sf}" title="${sf}" style="font-size:21px;width:42px;height:42px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer">${em}</button>`).join("")}</div>
+      <div id="iconGrid" style="display:flex;flex-wrap:wrap;gap:6px">${ICON_CHOICES.map((sf) => `<button type="button" class="iconpick" data-sf="${sf}" title="${sf}" style="display:grid;place-items:center;width:42px;height:42px;border:1px solid ${c.icon === sf ? "var(--maroon)" : "var(--line)"};border-radius:9px;background:#fff;color:${c.icon === sf ? "var(--maroon)" : "var(--text)"};cursor:pointer">${iconSvg(sf, 22)}</button>`).join("")}</div>
     </div>
     <div class="field"><label>Shows as on app versions that haven't updated</label>
       <select id="c_legacy">${LEGACY_OPTS.map((s) => `<option value="${s}" ${c.legacy_category === s ? "selected" : ""}>${esc(catLabel(s))}</option>`).join("")}</select>
@@ -899,7 +925,11 @@ function categoryForm(cat) {
     if (!$("c_slug").dataset.touched) $("c_slug").value = slugify($("c_label").value);
   });
   $("c_slug").addEventListener("input", () => { $("c_slug").dataset.touched = "1"; });
-  $("iconGrid").querySelectorAll(".iconpick").forEach((b) => b.addEventListener("click", () => { $("c_icon").value = b.dataset.sf; }));
+  $("iconGrid").querySelectorAll(".iconpick").forEach((b) => b.addEventListener("click", () => {
+    $("c_icon").value = b.dataset.sf;
+    $("iconGrid").querySelectorAll(".iconpick").forEach((x) => { x.style.borderColor = "var(--line)"; x.style.color = "var(--text)"; });
+    b.style.borderColor = "var(--maroon)"; b.style.color = "var(--maroon)";
+  }));
 }
 const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
