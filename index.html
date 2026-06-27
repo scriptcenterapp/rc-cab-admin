@@ -252,15 +252,45 @@ function fmt(iso, opts) {
   return new Date(iso).toLocaleString([], opts || { dateStyle: "medium", timeStyle: "short" });
 }
 
-const CATEGORIES = [
+const KINDS = [
+  ["cancelled", "Cancelled"], ["time_change", "Time Changed"], ["location_change", "Location Changed"], ["important", "Important"],
+];
+
+// Event categories live in the DB (`categories` table) so they can be edited
+// without code changes. Loaded after login into appCategories. CATEGORIES_FALLBACK
+// is used only if that read fails.
+const CATEGORIES_FALLBACK = [
   ["music", "Music"], ["bingo", "Bingo"], ["free_food", "Free Food"], ["movies", "Movies"],
   ["games", "Games & Trivia"], ["sports", "Sports"], ["giveaways", "Giveaways"], ["wellness", "Wellness"],
   ["greek_life", "Greek Life"], ["game_room", "Game Room"], ["sga", "SGA"], ["special", "Special Event"],
 ];
-const KINDS = [
-  ["cancelled", "Cancelled"], ["time_change", "Time Changed"], ["location_change", "Location Changed"], ["important", "Important"],
+let appCategories = [];
+async function loadCategories() {
+  const fb = () => CATEGORIES_FALLBACK.map(([slug, label], i) => ({ slug, label, color: "#7C2529", icon: "star.fill", legacy_category: "special", sort_order: i }));
+  try {
+    const { data, error } = await sb.from("categories").select("*").order("sort_order", { ascending: true });
+    appCategories = (!error && data && data.length) ? data : fb();
+  } catch { appCategories = fb(); }
+}
+const catBySlug = (slug) => appCategories.find((c) => c.slug === slug);
+const catLabel = (slug) => (catBySlug(slug) || {}).label || slug;
+const catColor = (slug) => (catBySlug(slug) || {}).color || "#999999";
+
+// "Show as" fallback options — the original tags every shipped app version knows.
+const LEGACY_OPTS = ["music","bingo","free_food","movies","games","sports","giveaways","wellness","special"];
+
+// Curated SF Symbols for the icon picker. The emoji is only a web preview; the
+// symbol name is what's stored and rendered natively in the iOS app.
+const ICON_CHOICES = [
+  ["music.note","🎵"],["square.grid.3x3.fill","🔲"],["fork.knife","🍴"],["popcorn.fill","🍿"],
+  ["die.face.5.fill","🎲"],["sportscourt.fill","🏟️"],["gift.fill","🎁"],["heart.fill","❤️"],
+  ["building.columns.fill","🏛️"],["gamecontroller.fill","🎮"],["person.3.fill","👥"],["star.fill","⭐"],
+  ["megaphone.fill","📣"],["flag.fill","🚩"],["calendar","📅"],["paintbrush.fill","🖌️"],
+  ["book.fill","📖"],["mic.fill","🎤"],["basketball.fill","🏀"],["trophy.fill","🏆"],
+  ["sparkles","✨"],["ticket.fill","🎟️"],["cup.and.saucer.fill","☕"],["sun.max.fill","☀️"],
+  ["leaf.fill","🍃"],["flame.fill","🔥"],["graduationcap.fill","🎓"],["theatermasks.fill","🎭"],
 ];
-const catLabel = (v) => (CATEGORIES.find((c) => c[0] === v) || [v, v])[1];
+const iconEmoji = (sf) => (ICON_CHOICES.find((c) => c[0] === sf) || [])[1] || "🏷️";
 const kindLabel = (v) => (KINDS.find((k) => k[0] === v) || [v, v])[1];
 
 // ---------- session state ----------
@@ -315,6 +345,7 @@ async function boot() {
   $("login").style.display = "none"; $("app").style.display = "block";
   $("whoEmail").textContent = me.email;
   $("whoRole").textContent = me.role;
+  await loadCategories();
   buildTabs();
   activeTab = "events";
   render();
@@ -322,7 +353,7 @@ async function boot() {
 
 function buildTabs() {
   const tabs = me.role === "admin"
-    ? [["events", "Events"], ["announcements", "Announcements"], ["info", "Info"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
+    ? [["events", "Events"], ["announcements", "Announcements"], ["info", "Info"], ["categories", "Categories"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
     : [["events", "Events"]];
   $("tabs").innerHTML = tabs.map(([id, label]) =>
     `<button data-tab="${id}" class="${id === activeTab ? "active" : ""}">${label}</button>`).join("");
@@ -334,6 +365,7 @@ function render() {
   if (activeTab === "events") return renderEvents();
   if (activeTab === "announcements") return renderAnnouncements();
   if (activeTab === "info") return renderInfo();
+  if (activeTab === "categories") return renderCategories();
   if (activeTab === "offseason") return renderOffSeason();
   if (activeTab === "calendar") return renderCalendar();
   if (activeTab === "team") return renderTeam();
@@ -366,7 +398,7 @@ async function renderEvents() {
         : `<div class="ev-thumb none" title="No image" aria-label="No image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-4.5-4.5L7 20"/><line x1="3.5" y1="20.5" x2="20.5" y2="3.5"/></svg></div>`}
       <div class="meta">
         <div class="name">${esc(ev.title)}${ev.is_cancelled ? '<span class="pill red">Cancelled</span>' : ""}${ev.is_featured ? '<span class="pill">Featured</span>' : ""}</div>
-        <div class="sub">${esc(catLabel(ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div>
+        <div class="sub"><span style="display:inline-block;width:9px;height:9px;border-radius:99px;background:${catColor(ev.category_slug || ev.category)};margin-right:5px;vertical-align:middle"></span>${esc(catLabel(ev.category_slug || ev.category))} · ${fmt(ev.start_date)} · ${esc(ev.location)}</div>
       </div>
       <div class="actions">
         <button class="btn secondary sm" data-edit="${ev.id}">Edit</button>
@@ -424,7 +456,7 @@ function eventForm(ev) {
     </div>
     <div class="row">
       <div class="field"><label>Location</label><input id="f_loc" value="${esc(e.location || "")}" /></div>
-      <div class="field"><label>Category</label><select id="f_cat">${CATEGORIES.map(([v, l]) => `<option value="${v}" ${e.category === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+      <div class="field"><label>Category</label><select id="f_cat">${appCategories.map((c) => `<option value="${c.slug}" ${(e.category_slug || e.category) === c.slug ? "selected" : ""}>${esc(c.label)}</option>`).join("")}</select></div>
     </div>
     <div class="field"><label>Hosted by</label><input id="f_host" value="${esc(e.host_org || "RC Campus Life")}" /></div>
     <div class="field">
@@ -614,7 +646,9 @@ async function saveEvent(id) {
     start_date,
     end_date: fromLocalInput($("f_end").value),
     location,
-    category: $("f_cat").value,
+    category_slug: $("f_cat").value,
+    // legacy enum column = a value every shipped app version knows, so old apps never break
+    category: (catBySlug($("f_cat").value) || {}).legacy_category || "special",
     host_org: $("f_host").value.trim() || "RC Campus Life",
     image_url,
     silence_notifications: $("f_silence").checked,
@@ -807,6 +841,103 @@ async function saveInfo() {
     m.classList.add("show"); return;
   }
   toast("Info saved"); renderInfo();
+}
+
+// ---------- CATEGORIES (admin: manage event tags — color, icon, order) ----------
+async function renderCategories() {
+  const view = $("view");
+  view.innerHTML = `
+    <div class="section-head"><h2>Categories</h2><button class="btn" id="addCat">+ Add category</button></div>
+    <p style="color:var(--muted);font-size:14px;margin:-6px 0 14px">Event tags. Color &amp; icon show in the app; ↑/↓ sets the order. “Shows as” is what app versions that haven't updated yet will display (so older users never break).</p>
+    <div id="catList"><div class="empty">Loading…</div></div>`;
+  $("addCat").addEventListener("click", () => categoryForm(null));
+  await loadCategories();
+  const list = $("catList");
+  if (!appCategories.length) { list.innerHTML = `<div class="empty">No categories.</div>`; return; }
+  list.innerHTML = appCategories.map((c, i) => `
+    <div class="card"><div class="item">
+      <span style="width:36px;height:36px;border-radius:9px;background:${c.color};color:#fff;display:grid;place-items:center;font-size:19px;flex-shrink:0">${iconEmoji(c.icon)}</span>
+      <div class="meta">
+        <div class="name">${esc(c.label)} <span class="pill gray">${esc(c.slug)}</span></div>
+        <div class="sub">${esc(c.color)} · ${esc(c.icon)} · shows as “${esc(catLabel(c.legacy_category))}” on old apps</div>
+      </div>
+      <div class="actions">
+        <button class="btn secondary sm" data-up="${esc(c.slug)}" ${i === 0 ? "disabled" : ""}>↑</button>
+        <button class="btn secondary sm" data-down="${esc(c.slug)}" ${i === appCategories.length - 1 ? "disabled" : ""}>↓</button>
+        <button class="btn secondary sm" data-editcat="${esc(c.slug)}">Edit</button>
+        <button class="btn danger sm" data-delcat="${esc(c.slug)}">Delete</button>
+      </div>
+    </div></div>`).join("");
+  list.querySelectorAll("[data-editcat]").forEach((b) => b.addEventListener("click", () => categoryForm(catBySlug(b.dataset.editcat))));
+  list.querySelectorAll("[data-delcat]").forEach((b) => b.addEventListener("click", () => deleteCategory(b.dataset.delcat)));
+  list.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => moveCategory(b.dataset.up, -1)));
+  list.querySelectorAll("[data-down]").forEach((b) => b.addEventListener("click", () => moveCategory(b.dataset.down, 1)));
+}
+
+function categoryForm(cat) {
+  const c = cat || { slug: "", label: "", color: "#7C2529", icon: "star.fill", legacy_category: "special" };
+  const isNew = !cat;
+  openModal(`
+    <h3>${isNew ? "Add category" : "Edit category"}</h3>
+    <div id="formMsg" class="msg err"></div>
+    <div class="field"><label>Name</label><input id="c_label" value="${esc(c.label)}" placeholder="e.g. Wellness" /></div>
+    <div class="field"><label>Slug — permanent id, can't change later</label><input id="c_slug" value="${esc(c.slug)}" placeholder="auto from name" ${isNew ? "" : "disabled"} /></div>
+    <div class="row">
+      <div class="field"><label>Color</label><input id="c_color" type="color" value="${esc(c.color)}" style="height:46px;padding:4px" /></div>
+      <div class="field"><label>Icon (SF Symbol)</label><input id="c_icon" value="${esc(c.icon)}" placeholder="star.fill" /></div>
+    </div>
+    <div class="field"><label>Pick an icon</label>
+      <div id="iconGrid" style="display:flex;flex-wrap:wrap;gap:6px">${ICON_CHOICES.map(([sf, em]) => `<button type="button" class="iconpick" data-sf="${sf}" title="${sf}" style="font-size:21px;width:42px;height:42px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer">${em}</button>`).join("")}</div>
+    </div>
+    <div class="field"><label>Shows as on app versions that haven't updated</label>
+      <select id="c_legacy">${LEGACY_OPTS.map((s) => `<option value="${s}" ${c.legacy_category === s ? "selected" : ""}>${esc(catLabel(s))}</option>`).join("")}</select>
+    </div>
+    <div class="foot"><button class="btn secondary" id="c_cancel">Cancel</button><button class="btn" id="c_save">${isNew ? "Add" : "Save"}</button></div>`);
+  $("c_cancel").addEventListener("click", closeModal);
+  $("c_save").addEventListener("click", () => saveCategory(cat ? cat.slug : null));
+  if (isNew) $("c_label").addEventListener("input", () => {
+    if (!$("c_slug").dataset.touched) $("c_slug").value = slugify($("c_label").value);
+  });
+  $("c_slug").addEventListener("input", () => { $("c_slug").dataset.touched = "1"; });
+  $("iconGrid").querySelectorAll(".iconpick").forEach((b) => b.addEventListener("click", () => { $("c_icon").value = b.dataset.sf; }));
+}
+const slugify = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+
+async function saveCategory(existingSlug) {
+  const m = $("formMsg"); m.classList.remove("show");
+  const label = $("c_label").value.trim();
+  const slug = existingSlug || slugify($("c_slug").value);
+  if (!label || !slug) { m.textContent = "Name and slug are required."; m.classList.add("show"); return; }
+  const row = {
+    slug, label, color: $("c_color").value, icon: $("c_icon").value.trim() || "star.fill",
+    legacy_category: $("c_legacy").value,
+    sort_order: existingSlug ? ((catBySlug(existingSlug) || {}).sort_order ?? 0)
+                             : (appCategories.length ? Math.max(...appCategories.map((c) => c.sort_order || 0)) + 1 : 1),
+  };
+  $("c_save").disabled = true;
+  const { error } = await sb.from("categories").upsert(row, { onConflict: "slug" });
+  $("c_save").disabled = false;
+  if (error) { m.textContent = error.message; m.classList.add("show"); return; }
+  closeModal(); toast("Category saved"); renderCategories();
+}
+
+async function deleteCategory(slug) {
+  const { count } = await sb.from("events").select("id", { count: "exact", head: true }).eq("category_slug", slug);
+  const used = count || 0;
+  if (!confirm(`Delete "${catLabel(slug)}"?${used ? ` ${used} event(s) use it — they'll fall back to a default style until re-tagged.` : ""}`)) return;
+  const { error } = await sb.from("categories").delete().eq("slug", slug);
+  if (error) { toast(error.message); return; }
+  toast("Category deleted"); renderCategories();
+}
+
+async function moveCategory(slug, dir) {
+  const i = appCategories.findIndex((c) => c.slug === slug);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= appCategories.length) return;
+  const a = appCategories[i], b = appCategories[j];
+  await sb.from("categories").update({ sort_order: b.sort_order }).eq("slug", a.slug);
+  await sb.from("categories").update({ sort_order: a.sort_order }).eq("slug", b.slug);
+  renderCategories();
 }
 
 // ---------- CALENDAR (admin) ----------
