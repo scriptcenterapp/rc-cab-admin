@@ -5,10 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="color-scheme" content="light" />
 <title>RC Campus Life Events App Admin</title>
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
-<link rel="icon" type="image/png" href="/favicon-512.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="https://rccampusapp-admin.vercel.app/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="https://rccampusapp-admin.vercel.app/favicon-16.png" />
+<link rel="icon" type="image/png" href="https://rccampusapp-admin.vercel.app/favicon-512.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="https://rccampusapp-admin.vercel.app/apple-touch-icon.png" />
+<script>
+  // Canonical home is rceventplanning.com/appadmin. Visitors who hit the old
+  // .vercel.app host directly are sent to the new URL. When the app is proxied
+  // under rceventplanning.com the hostname differs, so this safely no-ops.
+  if (location.hostname === "rccampusapp-admin.vercel.app") {
+    location.replace("https://rceventplanning.com/appadmin");
+  }
+</script>
 <style>
   :root {
     --maroon: #7c2529;
@@ -364,17 +372,30 @@ async function doChangePassword() {
   closeModal(); toast("Password updated");
 }
 
+// Display label for a stored role ("editor" is shown as "Manager").
+const roleLabel = (r) => r === "editor" ? "Manager" : r === "admin" ? "Admin" : (r || "");
+
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { $("login").style.display = ""; $("app").style.display = "none"; return; }
   me.email = session.user.email;
   me.id = session.user.id;
-  // determine role
+  // determine role — require an explicit Admin or Manager role. Anyone signed in
+  // without one (no user_roles row) is denied and signed out, so only real
+  // accounts can reach the admin.
   const { data: roleRow } = await sb.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle();
-  me.role = roleRow?.role || "editor";
+  const role = roleRow?.role;
+  if (role !== "admin" && role !== "editor") {
+    await sb.auth.signOut();
+    $("login").style.display = ""; $("app").style.display = "none";
+    const lm = $("loginMsg");
+    if (lm) { lm.textContent = "This account doesn't have access. Ask an admin to grant you access."; lm.classList.add("show"); }
+    return;
+  }
+  me.role = role;
   $("login").style.display = "none"; $("app").style.display = "block";
   $("whoEmail").textContent = me.email;
-  $("whoRole").textContent = me.role;
+  $("whoRole").textContent = roleLabel(me.role);
   await loadCategories();
   buildTabs();
   activeTab = "events";
@@ -1027,7 +1048,7 @@ async function renderTeam() {
   const view = $("view");
   view.innerHTML = `
     <div class="section-head"><h2>Team</h2><button class="btn" id="addUser">+ Add account</button></div>
-    <p style="color:var(--muted);font-size:14px;margin:-6px 0 14px">Editors can <strong>only add events</strong>. Admins can manage everything.</p>
+    <p style="color:var(--muted);font-size:14px;margin:-6px 0 14px">Managers can <strong>only add events</strong>. Admins can manage everything.</p>
     <div id="teamList"><div class="empty">Loading…</div></div>`;
   $("addUser").addEventListener("click", userForm);
   const { data, error } = await sb.rpc("admin_list_users");
@@ -1036,7 +1057,7 @@ async function renderTeam() {
   if (!data || !data.length) { list.innerHTML = `<div class="empty">No accounts yet.</div>`; return; }
   list.innerHTML = data.map((u) => `
     <div class="card"><div class="item">
-      <div class="meta"><div class="name">${esc(u.email)}<span class="pill ${u.role === "admin" ? "" : "gray"}">${esc(u.role)}</span>${u.user_id === me.id ? '<span class="pill gray">you</span>' : ""}</div>
+      <div class="meta"><div class="name">${esc(u.email)}<span class="pill ${u.role === "admin" ? "" : "gray"}">${esc(roleLabel(u.role))}</span>${u.user_id === me.id ? '<span class="pill gray">you</span>' : ""}</div>
       <div class="sub">Added ${fmt(u.created_at)}</div></div>
       ${u.user_id === me.id ? "" : `<div class="actions"><button class="btn danger sm" data-deluser="${u.user_id}" data-email="${esc(u.email)}">Remove</button></div>`}
     </div></div>`).join("");
@@ -1064,7 +1085,7 @@ function userForm() {
     <div id="formMsg" class="msg err"></div>
     <div class="field"><label>Email</label><input id="u_email" type="email" /></div>
     <div class="field"><label>Temporary password</label><input id="u_pass" type="text" placeholder="at least 6 characters" /></div>
-    <div class="field"><label>Role</label><select id="u_role"><option value="editor">Editor — can only add events</option><option value="admin">Admin — full access</option></select></div>
+    <div class="field"><label>Role</label><select id="u_role"><option value="editor">Manager — can only add events</option><option value="admin">Admin — full access</option></select></div>
     <p style="color:var(--muted);font-size:13px">Share this email + password with the person. They can sign in right away.</p>
     <div class="foot"><button class="btn secondary" id="u_cancel">Cancel</button><button class="btn" id="u_save">Create account</button></div>`);
   $("u_cancel").addEventListener("click", closeModal);
