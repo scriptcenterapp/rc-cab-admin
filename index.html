@@ -94,23 +94,31 @@
   /* App shell */
   #app { display: none; min-height: 100dvh; }
   .topbar { position: sticky; top: 0; z-index: 5; }
-  header.bar {
-    background: linear-gradient(180deg, #7a2c42, var(--maroon)); color: #fff; padding: 10px 18px;
-    display: flex; align-items: center; gap: 12px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 0 rgba(0,0,0,.24);
-  }
-  header.bar .mark { width: 34px; height: 34px; border-radius: 9px; overflow: hidden; background: rgba(255,255,255,.14); display: grid; place-items: center; font-weight: 600; font-size: 13px; flex-shrink: 0; }
-  header.bar .mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  header.bar .title { font-weight: 600; font-size: 16px; line-height: 1.15; letter-spacing: -.2px; }
-  header.bar .title small { display: block; font-weight: 450; font-size: 12px; opacity: .82; letter-spacing: 0; }
-  header.bar .spacer { flex: 1; }
-  header.bar .who { font-size: 13px; opacity: .92; text-align: right; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .2px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.2); }
-
-  nav.tabs { display: flex; gap: 3px; padding: 7px 14px; background: linear-gradient(180deg, var(--maroon), var(--maroon-dark)); overflow-x: auto; scrollbar-width: none; }
+  /* Menu bar — mirrors the Event Planner: maroon gradient, logo + glass pill tabs, account pill */
+  .menubar { height: 48px; background: linear-gradient(180deg, #7a2c42, var(--maroon)); color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 0 rgba(0,0,0,.24), 0 6px 18px -8px rgba(34,20,24,.4); }
+  .mb-inner { max-width: 760px; margin: 0 auto; height: 100%; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .mb-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+  .mb-logo { width: 30px; height: 30px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,.14); }
+  .mb-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mb-div { width: 1px; height: 20px; background: rgba(255,255,255,.2); flex-shrink: 0; }
+  nav.tabs { display: flex; align-items: center; gap: 3px; overflow-x: auto; scrollbar-width: none; min-width: 0; height: 100%; }
   nav.tabs::-webkit-scrollbar { display: none; }
   nav.tabs button { background: transparent; border: none; color: rgba(255,255,255,.8); padding: 7px 15px; font-size: 13.5px; font-weight: 450; border-radius: 999px; white-space: nowrap; transition: background .18s, transform .12s cubic-bezier(.34,1.56,.64,1); }
   nav.tabs button.active { color: #fff; font-weight: 600; background: rgba(255,255,255,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.42), inset 0 -1px 3px rgba(0,0,0,.07), 0 2px 6px rgba(0,0,0,.14); }
+  .mb-acct { position: relative; flex-shrink: 0; }
+  .mb-acct-btn { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.16); border-radius: 999px; padding: 3px 11px 3px 3px; color: #fff; }
+  .mb-avatar { width: 27px; height: 27px; border-radius: 999px; background: rgba(255,255,255,.92); color: var(--maroon); display: grid; place-items: center; font-size: 11.5px; font-weight: 600; flex-shrink: 0; }
+  .mb-uname { font-size: 13px; font-weight: 450; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+  .mb-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; background: var(--glass); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); border: 1px solid var(--line); border-radius: 13px; box-shadow: 0 16px 40px rgba(34,20,24,.2); padding: 6px; min-width: 224px; }
+  .mb-menu[hidden] { display: none; }
+  .mb-menu-head { padding: 7px 10px 9px; border-bottom: 1px solid var(--line); margin-bottom: 4px; font-size: 11px; color: var(--faint); }
+  .mb-menu-head b { display: block; color: var(--text); font-weight: 600; font-size: 13.5px; margin: 2px 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-menu button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: transparent; border: none; border-radius: 9px; padding: 9px 11px; font-size: 13.5px; font-weight: 500; color: var(--text); box-shadow: none; }
+  .mb-menu button:hover { background: var(--surface2); filter: none; }
+  .mb-menu button.danger-item { color: var(--danger); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .2px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.2); }
+  .mb-menu .badge { background: #f2e9ec; color: var(--maroon); }
 
   main { max-width: 760px; margin: 0 auto; padding: 24px 16px 70px; }
   .section-head { display: flex; align-items: center; margin-bottom: 14px; gap: 10px; }
@@ -167,16 +175,9 @@
 
   /* ---------- Mobile ---------- */
   @media (max-width: 640px) {
-    header.bar { flex-wrap: wrap; padding: 12px 14px; gap: 8px 10px; }
-    header.bar .mark { width: 32px; height: 32px; font-size: 12px; }
-    header.bar .title { font-size: 16px; }
-    header.bar .title small { display: none; }
-    header.bar .who { font-size: 12px; line-height: 1.15; text-align: right; }
-    header.bar .who #whoEmail { max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    header.bar .btn.sm { margin-left: 0 !important; padding: 8px 12px; }
-
-    nav.tabs { padding: 0 8px; }
-    nav.tabs button { padding: 12px 12px; }
+    .mb-inner { padding: 0 12px; }
+    .mb-uname { display: none; }
+    nav.tabs button { padding: 7px 12px; }
 
     main { padding: 16px 12px 64px; }
     .section-head h2 { font-size: 19px; }
@@ -233,18 +234,27 @@
 <!-- ===== App ===== -->
 <div id="app">
   <div class="topbar">
-    <header class="bar">
-      <div class="mark"><img src="apple-touch-icon.png" alt="RC Campus Life" /></div>
-      <div class="title">RC Campus Life Events App Admin<small>Student Engagement</small></div>
-      <div class="spacer"></div>
-      <div class="who">
-        <div id="whoEmail"></div>
-        <span class="badge" id="whoRole"></span>
+    <div class="menubar">
+      <div class="mb-inner">
+        <div class="mb-left">
+          <div class="mb-logo"><img src="apple-touch-icon.png" alt="RC Campus Life" /></div>
+          <div class="mb-div"></div>
+          <nav class="tabs" id="tabs"></nav>
+        </div>
+        <div class="mb-acct" id="mbAcct">
+          <button class="mb-acct-btn" id="acctBtn" title="Account" aria-haspopup="true">
+            <span class="mb-avatar" id="acctInitial">?</span>
+            <span class="mb-uname" id="whoEmail"></span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.72"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="mb-menu" id="acctMenu" hidden>
+            <div class="mb-menu-head">Signed in as<b id="acctEmail"></b><span class="badge" id="whoRole"></span></div>
+            <button id="changePwBtn">Change password</button>
+            <button id="signOutBtn" class="danger-item">Sign out</button>
+          </div>
+        </div>
       </div>
-      <button class="btn secondary sm" id="changePwBtn" style="margin-left:10px">Change password</button>
-      <button class="btn secondary sm" id="signOutBtn" style="margin-left:6px">Sign out</button>
-    </header>
-    <nav class="tabs" id="tabs"></nav>
+    </div>
   </div>
   <main id="view"></main>
 </div>
@@ -368,6 +378,11 @@ $("loginForm").addEventListener("submit", async (e) => {
 });
 $("signOutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
 
+// account dropdown in the menu bar — toggle, dismiss on outside click / item pick
+$("acctBtn").addEventListener("click", (e) => { e.stopPropagation(); $("acctMenu").hidden = !$("acctMenu").hidden; });
+$("acctMenu").addEventListener("click", (e) => { if (e.target.closest("button")) $("acctMenu").hidden = true; });
+document.addEventListener("click", (e) => { if (!$("mbAcct").contains(e.target)) $("acctMenu").hidden = true; });
+
 // ---------- change own password ----------
 $("changePwBtn").addEventListener("click", () => {
   openModal(`
@@ -415,6 +430,8 @@ async function boot() {
   me.role = role;
   $("login").style.display = "none"; $("app").style.display = "block";
   $("whoEmail").textContent = me.email;
+  $("acctEmail").textContent = me.email;
+  $("acctInitial").textContent = (me.email || "?").trim().charAt(0).toUpperCase() || "?";
   $("whoRole").textContent = roleLabel(me.role);
   await loadCategories();
   buildTabs();
