@@ -213,7 +213,7 @@
     <div class="brand">
       <div class="mark"><img src="https://rceventplanning.com/se-logo-2.png" alt="Roanoke College Student Engagement" /></div>
       <h1>RC Campus Life Events App Admin</h1>
-      <p class="sub">Student Engagement</p>
+      <p class="sub">Sign in with your Event Planner account</p>
     </div>
     <div id="loginMsg" class="msg err"></div>
     <form id="loginForm">
@@ -366,13 +366,30 @@ let activeTab = "events";
 let pendingImage = null;   // cropped 18×24 poster blob awaiting upload (set by the cropper)
 
 // ---------- auth ----------
+const PLANNER_LOGIN = "https://rceventplanning.com/api/appadmin-login";
+const RC_TOKEN_KEY = "sb-tswffszxrhzonaetwldv-auth-token";
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const msg = $("loginMsg"); msg.classList.remove("show");
+  const email = $("email").value.trim(), password = $("password").value;
   $("loginBtn").disabled = true; $("loginBtn").textContent = "Signing in…";
-  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  // 1) Planner login — same account as the Event Planner (works at both entry
+  //    points and is reachable even where *.supabase.co is filtered).
+  let plannerErr = "";
+  try {
+    const r = await fetch(PLANNER_LOGIN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.session && j.session.access_token) {
+      localStorage.setItem(RC_TOKEN_KEY, JSON.stringify(j.session));
+      location.reload();   // boot() picks up the session from localStorage
+      return;
+    }
+    plannerErr = j.error || "";
+  } catch (_) { /* planner unreachable — fall through to native auth */ }
+  // 2) Native RC Life account (fallback)
+  const { error } = await sb.auth.signInWithPassword({ email, password });
   $("loginBtn").disabled = false; $("loginBtn").textContent = "Sign in";
-  if (error) { msg.textContent = error.message; msg.classList.add("show"); return; }
+  if (error) { msg.textContent = plannerErr || error.message; msg.classList.add("show"); return; }
   await boot();
 });
 $("signOutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
