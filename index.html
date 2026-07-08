@@ -9,21 +9,16 @@
 <link rel="icon" type="image/png" sizes="16x16" href="https://rccampusapp-admin.vercel.app/favicon-16.png" />
 <link rel="icon" type="image/png" href="https://rccampusapp-admin.vercel.app/favicon-512.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="https://rccampusapp-admin.vercel.app/apple-touch-icon.png" />
-<script>
-  // Canonical home is rceventplanning.com/appadmin. Visitors who hit the old
-  // .vercel.app host directly are sent to the new URL. When the app is proxied
-  // under rceventplanning.com the hostname differs, so this safely no-ops.
-  if (location.hostname === "rccampusapp-admin.vercel.app") {
-    location.replace("https://rceventplanning.com/appadmin");
-  }
-</script>
+<!-- Works at both entry points: rceventplanning.com/appadmin (SSO from the
+     planner, same-origin) and rccampusapp-admin.vercel.app (direct login). -->
+
 <style>
   /* Self-host Inter so non-Apple devices get Inter instead of Segoe UI/Roboto.
      Relative URL resolves same-origin whether direct or proxied under /appadmin. */
-  /* Absolute /appadmin path so it resolves under the proxied mount (a relative
-     URL breaks at rceventplanning.com/appadmin — no trailing slash). Same-origin
-     via the proxy, so no cross-origin/CORS issue. */
-  @font-face { font-family: 'Inter'; src: url('/appadmin/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; font-style: normal; }
+  /* Absolute host URL so it loads at both entry points (proxied /appadmin and
+     the direct .vercel.app). Cross-origin under the proxy, so vercel.json sends
+     Access-Control-Allow-Origin for the font. */
+  @font-face { font-family: 'Inter'; src: url('https://rccampusapp-admin.vercel.app/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; font-style: normal; }
   :root {
     --maroon: #6E2639;
     --maroon-dark: #5a1f2f;
@@ -253,8 +248,8 @@
           </button>
           <div class="mb-menu" id="acctMenu" hidden>
             <div class="mb-menu-head">Signed in as<b id="acctEmail"></b><span class="badge" id="whoRole"></span></div>
-            <button id="changePwBtn">Change password</button>
-            <button id="signOutBtn" class="danger-item">Sign out</button>
+            <button id="changePwBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="color:var(--maroon);flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Change password</button>
+            <button id="signOutBtn" class="danger-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>Sign out</button>
           </div>
         </div>
       </div>
@@ -433,8 +428,8 @@ async function boot() {
   }
   me.role = role;
   $("login").style.display = "none"; $("app").style.display = "block";
-  $("whoEmail").textContent = me.email;
-  $("acctEmail").textContent = me.email;
+  $("whoEmail").textContent = (me.email || "").split("@")[0];   // short name in the pill
+  $("acctEmail").textContent = me.email;                        // full email in the dropdown
   $("acctInitial").textContent = (me.email || "?").trim().charAt(0).toUpperCase() || "?";
   $("whoRole").textContent = roleLabel(me.role);
   await loadCategories();
@@ -445,7 +440,7 @@ async function boot() {
 
 function buildTabs() {
   const tabs = me.role === "admin"
-    ? [["events", "Events"], ["announcements", "Announcements"], ["info", "Info"], ["categories", "Categories"], ["offseason", "Off-Season"], ["calendar", "Calendar"], ["team", "Team"]]
+    ? [["events", "Events"], ["announcements", "Announcements"], ["info", "Info"], ["categories", "Categories"], ["offseason", "Off-Season"], ["calendar", "Calendar"]]
     : [["events", "Events"]];
   $("tabs").innerHTML = tabs.map(([id, label]) =>
     `<button data-tab="${id}" class="${id === activeTab ? "active" : ""}">${label}</button>`).join("");
@@ -940,7 +935,7 @@ async function renderCategories() {
   const view = $("view");
   view.innerHTML = `
     <div class="section-head"><h2>Categories</h2><button class="btn" id="addCat">+ Add category</button></div>
-    <p style="color:var(--muted);font-size:14px;margin:-6px 0 14px">Event tags. Color &amp; icon show in the app; ↑/↓ sets the order. “Shows as” is what app versions that haven't updated yet will display (so older users never break).</p>
+    <p style="color:var(--muted);font-size:14px;margin:-6px 0 14px">Event tags. Color &amp; icon show in the app; ↑/↓ sets the order.</p>
     <div id="catList"><div class="empty">Loading…</div></div>`;
   $("addCat").addEventListener("click", () => categoryForm(null));
   await loadCategories();
@@ -950,8 +945,7 @@ async function renderCategories() {
     <div class="card"><div class="item">
       <span style="width:36px;height:36px;border-radius:9px;background:${c.color};color:#fff;display:grid;place-items:center;flex-shrink:0">${iconSvg(c.icon, 21)}</span>
       <div class="meta">
-        <div class="name">${esc(c.label)} <span class="pill gray">${esc(c.slug)}</span></div>
-        <div class="sub">${esc(c.color)} · ${esc(c.icon)} · shows as “${esc(catLabel(c.legacy_category))}” on old apps</div>
+        <div class="name">${esc(c.label)}</div>
       </div>
       <div class="actions">
         <button class="btn secondary sm" data-up="${esc(c.slug)}" ${i === 0 ? "disabled" : ""}>↑</button>
