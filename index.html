@@ -20,7 +20,10 @@
 <style>
   /* Self-host Inter so non-Apple devices get Inter instead of Segoe UI/Roboto.
      Relative URL resolves same-origin whether direct or proxied under /appadmin. */
-  @font-face { font-family: 'Inter'; src: url('Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; font-style: normal; }
+  /* Absolute /appadmin path so it resolves under the proxied mount (a relative
+     URL breaks at rceventplanning.com/appadmin — no trailing slash). Same-origin
+     via the proxy, so no cross-origin/CORS issue. */
+  @font-face { font-family: 'Inter'; src: url('/appadmin/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; font-style: normal; }
   :root {
     --maroon: #6E2639;
     --maroon-dark: #5a1f2f;
@@ -97,7 +100,8 @@
   /* Menu bar — mirrors the Event Planner: maroon gradient, logo + glass pill tabs, account pill */
   .menubar { height: 48px; background: linear-gradient(180deg, #7a2c42, var(--maroon)); color: #fff;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 0 rgba(0,0,0,.24), 0 6px 18px -8px rgba(34,20,24,.4); }
-  .mb-inner { max-width: 760px; margin: 0 auto; height: 100%; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  /* Full-width bar — this app has many tabs, so use the whole width (content below stays centered). */
+  .mb-inner { max-width: none; margin: 0 auto; height: 100%; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .mb-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
   .mb-logo { width: 30px; height: 30px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,.14); }
   .mb-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -212,7 +216,7 @@
 <div id="login">
   <div class="card">
     <div class="brand">
-      <div class="mark"><img src="apple-touch-icon.png" alt="RC Campus Life" /></div>
+      <div class="mark"><img src="https://rccampusapp-admin.vercel.app/apple-touch-icon.png" alt="RC Campus Life" /></div>
       <h1>RC Campus Life Events App Admin</h1>
       <p class="sub">Student Engagement</p>
     </div>
@@ -237,7 +241,7 @@
     <div class="menubar">
       <div class="mb-inner">
         <div class="mb-left">
-          <div class="mb-logo"><img src="apple-touch-icon.png" alt="RC Campus Life" /></div>
+          <div class="mb-logo"><img src="https://rccampusapp-admin.vercel.app/apple-touch-icon.png" alt="RC Campus Life" /></div>
           <div class="mb-div"></div>
           <nav class="tabs" id="tabs"></nav>
         </div>
