@@ -89,8 +89,8 @@
                 radial-gradient(52% 46% at -10% 112%, rgba(168,60,90,.09), transparent 70%), var(--bg); }
   #login .card { width: 100%; max-width: 400px; background: var(--glass); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 24px 60px rgba(34,20,24,.14); padding: 34px 28px; }
   #login .brand { text-align: center; margin-bottom: 22px; }
-  #login .brand .mark { width: 60px; height: 60px; border-radius: 15px; overflow: hidden; background: var(--maroon); display: grid; place-items: center; margin: 0 auto 14px; box-shadow: 0 10px 26px rgba(110,38,57,.30); color: #fff; font-weight: 700; }
-  #login .brand .mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #login .brand .mark { display: inline-flex; align-items: center; background: var(--maroon); border-radius: 16px; padding: 13px 22px; margin-bottom: 16px; box-shadow: 0 10px 26px rgba(110,38,57,.30); }
+  #login .brand .mark img { height: 30px; width: auto; display: block; }
   #login h1 { font-size: 21px; font-weight: 600; letter-spacing: -.3px; margin: 0; }
   #login p.sub { color: var(--muted); font-size: 14px; margin: 5px 0 0; }
 
@@ -103,8 +103,8 @@
   /* Full-width bar — this app has many tabs, so use the whole width (content below stays centered). */
   .mb-inner { max-width: none; margin: 0 auto; height: 100%; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .mb-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
-  .mb-logo { width: 30px; height: 30px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,.14); }
-  .mb-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mb-logo { display: flex; align-items: center; flex-shrink: 0; }
+  .mb-logo img { height: 30px; width: auto; display: block; }
   .mb-div { width: 1px; height: 20px; background: rgba(255,255,255,.2); flex-shrink: 0; }
   nav.tabs { display: flex; align-items: center; gap: 3px; overflow-x: auto; scrollbar-width: none; min-width: 0; height: 100%; }
   nav.tabs::-webkit-scrollbar { display: none; }
@@ -216,7 +216,7 @@
 <div id="login">
   <div class="card">
     <div class="brand">
-      <div class="mark"><img src="https://rccampusapp-admin.vercel.app/apple-touch-icon.png" alt="RC Campus Life" /></div>
+      <div class="mark"><img src="https://rceventplanning.com/se-logo-2.png" alt="Roanoke College Student Engagement" /></div>
       <h1>RC Campus Life Events App Admin</h1>
       <p class="sub">Student Engagement</p>
     </div>
@@ -241,7 +241,7 @@
     <div class="menubar">
       <div class="mb-inner">
         <div class="mb-left">
-          <div class="mb-logo"><img src="https://rccampusapp-admin.vercel.app/apple-touch-icon.png" alt="RC Campus Life" /></div>
+          <div class="mb-logo"><img src="https://rceventplanning.com/se-logo-2.png" alt="Roanoke College Student Engagement" /></div>
           <div class="mb-div"></div>
           <nav class="tabs" id="tabs"></nav>
         </div>
